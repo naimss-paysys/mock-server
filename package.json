@@ -1,0 +1,18 @@
+{
+  "name": "mock-server",
+  "version": "1.0.0",
+  "description": "Mock server for testing API endpoints",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2",
+    "xml2js": "^0.6.2"
+  },
+  "keywords": ["mock", "server", "testing"],
+  "author": "",
+  "license": "ISC"
+}

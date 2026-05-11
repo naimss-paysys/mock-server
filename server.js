@@ -1,0 +1,1524 @@
+const express = require('express');
+const bodyParser = require('body-parser');
+const xml2js = require('xml2js');
+
+const app = express();
+const PORT = 3011;
+const processedBillpayReferenceIds = new Set();
+
+// Middleware
+app.use(bodyParser.json());
+app.use(bodyParser.text({ type: 'text/xml' }));
+app.use(bodyParser.text({ type: 'application/xml' }));
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// Logging middleware
+app.use((req, res, next) => {
+  console.log('\n==============================================');
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log('Headers:', req.headers);
+  console.log('Body:', req.body);
+  console.log('==============================================\n');
+  next();
+});
+
+// ============================================
+// 0. WSO2 Token (REST/JSON Endpoint)
+// ============================================
+app.post('/oauth2/token', (req, res) => {
+  console.log('WSO2 Token Request:', req.body);
+
+  const grantType = String(req.body?.grant_type || '').trim();
+
+  if (grantType !== 'client_credentials') {
+    return res.status(400).json({
+      error: 'unsupported_grant_type',
+      error_description: 'Only client_credentials is supported in this mock'
+    });
+  }
+
+  return res.json({
+    access_token: 'eyJ4NXQiOiJNekl4T1RGaFpqUXpNRGcwTnpSak1XWTFOMkkzWmpreE9XTm1ZemMzTnpZMU9XVmtOVFEzTWciLCJraWQiOiJOMlZsWldOaU4yRm1NREl3TnpFd01tWmhaamMwWWpBd05EUTBOak01WW1JMVptSTRNRFJpT1RJNFpqaGxZbUUxTWpCbU5UQmpZVGd4WTJZMU4yVmpZUV9SUzI1NiIsInR5cCI6ImF0K2p3dCIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiIxYzlhYjY5OS00Y2VmLTQyYmEtYWM1OC03N2Q2MDIwZjBjODgiLCJhdXQiOiJBUFBMSUNBVElPTiIsImF1ZCI6ImYycEdPWkN4b0I3QlhHUGVxR05FdlBQZlBDY2EiLCJuYmYiOjE3Mzc5Nzc1ODMsImF6cCI6ImYycEdPWkN4b0I3QlhHUGVxR05FdlBQZlBDY2EiLCJzY29wZSI6ImRlZmF1bHQiLCJpc3MiOiJodHRwczpcL1wvdGVzdC1hcGltLmF4aWFuLWdyb3VwLmNvbVwvb2F1dGgyXC90b2tlbiIsImV4cCI6MTczNzk4MTE4MywiaWF0IjoxNzM3OTc3NTgzLCJqdGkiOiJmMjA5MzY4YS0xM2I5LTRhNDgtODc2OS03NmM5OWI4NDVmN2YiLCJjbGllbnRfaWQiOiJmMnBHT1pDeG9CN0JYR1BlcUdORXZQUGZQQ2NhIn0.elaDm4S9AGzFzlND0NuyBNiiOLJUhpECsfG_eEbT1DEX0gkB3VEyayeVAmzGg80CRHJih1YzCsbpaDDh6VTTAhrhTzdcwx3wO_gZl_7byigPsOGQesPz88eYZRBwGNk16m7IF8OblcNl2XXemaP99MH2t7bmWSxl6fj9smQjXwQxghc_dEjPgRLmqjVC9tOkI2o9SfUwaM-pxiL1uDNU9U17e0Wlvh1u4L6ixFSUSYLt49cJUpXBxPTj678IZuGadhL5VB_hTAY62EjXcGLZtU8pXad85p3rSF__NgYTz3c9CzVkh41kprNaL607OFjuS6dx3MbowUCg7EIQQag',
+    scope: 'default',
+    token_type: 'Bearer',
+    expires_in: 3600
+  });
+});
+
+// ============================================
+// 1. Get Merchant KYC (REST/JSON Endpoint)
+// ============================================
+app.post('/api/merchant/kyc', (req, res) => {
+  console.log('Get Merchant KYC Request:', req.body);
+
+  const response = {
+    "respData": [
+      {
+        "id": 0,
+        "contactDetails": {
+          "id": 0,
+          "emailId": "vaghanirahul@gmail.com",
+          "alternateContactNumber": "0777585888",
+          "address": "MSASANI MSASANI 14111",
+          "city": "DAR ES SALAAM (KINONDONI)",
+          "zipcode": "14111",
+          "district": "KINONDONI",
+          "region": "DAR ES SALAAM (KINONDONI)"
+        },
+        "customerDetails": {
+          "id": 0,
+          "firstName": "DENIS",
+          "middleName": "RWEGASIRA",
+          "lastName": "ELIAS",
+          "dob": "Sep 5, 1989 12:00:00 AM",
+          "gender": "M",
+          "bloodGroup": "NULL",
+          "placeOfBirth": "TEST_PLACE",
+          "image": "/2020/11/02/19890905141110000124_IMAGE.jpg",
+          "signature": "/2020/11/02/19890905141110000124_SIGNATURE.jpg",
+          "nationality": "Tanzania",
+          "spokenLanguage": "Swahili",
+          "spokenLanguageId": 0
+        },
+        "registrationDTO": {
+          "id": 77658881,
+          "retailerId": 0,
+          "customerId": 0,
+          "simId": 0,
+          "contactId": 0,
+          "proofDocTypeId": 0,
+          "ProofDocType": "National ID",
+          "ProofDocCategory": "CUSTOMER",
+          "ProofDoc": "NULL",
+          "ProofNumber": "19940325615060000128",
+          "addProofDocType": "National ID",
+          "status": "REGISTERED",
+          "createUserMsisdn": "657223962",
+          "createDate": "Nov 2, 2020 12:22:59 PM",
+          "changeDate": "Jul 14, 2025 2:08:58 PM",
+          "customerMsisdn": req.body.customerMsisdn || "658283033",
+          "languageId": 0,
+          "tigoCashAccountStatus": "ACTIVATED",
+          "tigoCashAccountRequired": true,
+          "channelType": "TIGOAPP",
+          "activationDate": "Jul 14, 2025 2:08:58 PM",
+          "reRegCount": 0,
+          "customerType": "Prepaid",
+          "companyName": "",
+          "manageSubscriberFailure": 0,
+          "fullFillProductFailure": 0,
+          "linkNetworkFailure": 0,
+          "ki": "8F95D43A88FC18423DEF53D138887571",
+          "reserved": 0,
+          "verified": 0,
+          "verificationMode": "0",
+          "provision": 0,
+          "registrationType": "BIOMETRIC",
+          "representationType": "Individual",
+          "subscriberLineType": "PRIMARY"
+        },
+        "simDetails": {
+          "id": 0,
+          "iccid": "8925502042287595065",
+          "simtypeId": 0,
+          "imsi": "640021160759506",
+          "puk": "78616432"
+        },
+        "approvedDate": "",
+        "finalStatus": "REGISTERED",
+        "representationType": "Individual",
+        "relationship": "Self",
+        "resParameter": {
+          "SIM_SWAP_REASON": "DAMAGED"
+        }
+      }
+    ],
+    "maxUpdateCount": 2147483647,
+    "totalCount": 2516934,
+    "individualTotalCount": 0,
+    "corporateTotalCount": 0,
+    "respTime": new Date().toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }),
+    "statusCode": "SC0000"
+  };
+
+  res.json(response);
+});
+
+// ============================================
+// 1.1 Check Merchant Status (REST/JSON Endpoint)
+// ============================================
+app.post('/tigoagentapp_pesaliveNew/api/merchant/CheckMerchantStatus', (req, res) => {
+  console.log('Check Merchant Status Request:', req.body);
+
+  const response = {
+    Status: 'ACTIVE',
+    BackendResponse: 'Verification process completed successfully',
+    CreatedDate: '16-AUG-22 03.39.33.163046 PM'
+  };
+
+  res.json(response);
+});
+
+// ============================================
+// 2. Wallet Account Registration (SOAP)
+// ============================================
+app.post('/osb/services/UserRegistration_5_0', (req, res) => {
+  console.log('Wallet Account Registration Request:', req.body);
+
+  const soapResponse = `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+    <soapenv:Header xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:cor="http://soa.mic.co.af/coredata_1" xmlns:v1="http://xmlns.tigo.com/AddressType/V1" xmlns:v2="http://xmlns.tigo.com/ParameterType/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3" xmlns:v5="http://xmlns.tigo.com/MFS/UserRegistrationRequest/V5">
+      <cor:SOATransactionID xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:cor="http://soa.mic.co.af/coredata_1" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:v1="http://xmlns.tigo.com/AddressType/V1" xmlns:v2="http://xmlns.tigo.com/ParameterType/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3" xmlns:v5="http://xmlns.tigo.com/MFS/UserRegistrationRequest/V5">7b8faff6-16c2-4d14-9d7e-4768e8abe071</cor:SOATransactionID>
+    </soapenv:Header>
+    <soapenv:Body xmlns:cor="http://soa.mic.co.af/coredata_1" xmlns:v1="http://xmlns.tigo.com/AddressType/V1" xmlns:v2="http://xmlns.tigo.com/ParameterType/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3" xmlns:v5="http://xmlns.tigo.com/MFS/UserRegistrationRequest/V5">
+      <v51:UserRegistrationResponse xmlns:v51="http://xmlns.tigo.com/MFS/UserRegistrationResponse/V5">
+        <v31:ResponseHeader xmlns:v31="http://xmlns.tigo.com/ResponseHeader/V3">
+          <v31:GeneralResponse>
+            <v31:correlationID>a8178dc98bf64ea4bce248b61e52e1bf</v31:correlationID>
+            <v31:status>OK</v31:status>
+            <v31:code>userregistration-3009-0000-S</v31:code>
+            <v31:description>MFS Account Registered Successfully.</v31:description>
+          </v31:GeneralResponse>
+        </v31:ResponseHeader>
+        <v51:responseBody>
+          <v51:accountId>105631276</v51:accountId>
+          <v51:msisdn>25577066095</v51:msisdn>
+          <v51:firstName>SHAKIFU</v51:firstName>
+          <v51:lastName>SHOP</v51:lastName>
+          <v51:fullName>SHAKIFU SHOP</v51:fullName>
+          <v51:birthDate>1942-07-01</v51:birthDate>
+          <v51:primaryIDType>localgovtID</v51:primaryIDType>
+          <v51:primaryIDNumber>19420701633010000618</v51:primaryIDNumber>
+          <v1:AddressType>
+            <v1:Street> TANDAHIMBA 63301</v1:Street>
+            <v1:Neighborhood> TANDAHIMBA 63301</v1:Neighborhood>
+            <v1:City>TANDAHIMBA</v1:City>
+            <v1:State/>
+            <v1:Country>TZA</v1:Country>
+            <v1:ZIPCode>63301</v1:ZIPCode>
+          </v1:AddressType>
+          <v51:registrationLevel>HIGH</v51:registrationLevel>
+          <v51:registartionFormNumber/>
+          <v51:docsOnFile>0</v51:docsOnFile>
+          <v51:SMSProperty>0</v51:SMSProperty>
+          <v51:agentMSISDN>255717001234</v51:agentMSISDN>
+          <v51:autosweepInLowerLimit>0</v51:autosweepInLowerLimit>
+          <v51:autosweepInAmount>0</v51:autosweepInAmount>
+          <v51:autosweepOutUpperLimit>0</v51:autosweepOutUpperLimit>
+          <v51:autosweepOutAmount>0</v51:autosweepOutAmount>
+          <v51:alertThresholdWalletTrans>0</v51:alertThresholdWalletTrans>
+          <v51:mobileNotification>25577066095</v51:mobileNotification>
+          <v51:complianceChecked>0</v51:complianceChecked>
+        </v51:responseBody>
+      </v51:UserRegistrationResponse>
+    </soapenv:Body>
+  </soapenv:Envelope>`;
+
+  res.set('Content-Type', 'text/xml');
+  res.send(soapResponse);
+});
+
+// ============================================
+// 3. Change Group ID (SOAP)
+// ============================================
+app.post('/osb/services/ChangeCustomerTigoPesaGroup_1_0', (req, res) => {
+  console.log('Change Group ID Request:', req.body);
+
+  const soapResponse = `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+    <soapenv:Header xmlns:v1="http://xmlns.tigo.com/ChangeCustomerTigoPesaGroupRequest/V1" xmlns:v2="http://xmlns.tigo.com/ParameterType/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3">
+      <cor:SOATransactionID xmlns:cor="http://soa.mic.co.af/coredata_1" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v1="http://xmlns.tigo.com/ChangeCustomerTigoPesaGroupRequest/V1" xmlns:v2="http://xmlns.tigo.com/ParameterType/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3">afa5a844-347b-4758-9f12-71684f5b5ec9</cor:SOATransactionID>
+    </soapenv:Header>
+    <soapenv:Body xmlns:v1="http://xmlns.tigo.com/ChangeCustomerTigoPesaGroupRequest/V1" xmlns:v2="http://xmlns.tigo.com/ParameterType/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3">
+      <v11:changeCustomerTigoPesaGroupResponse xmlns:v11="http://xmlns.tigo.com/ChangeCustomerTigoPesaGroupResponse/V1">
+        <v31:ResponseHeader xmlns:v31="http://xmlns.tigo.com/ResponseHeader/V3">
+          <v31:GeneralResponse>
+            <v31:correlationID>adsf1asd2323</v31:correlationID>
+            <v31:status>OK</v31:status>
+            <v31:code>changecustomertigopesagroup-0000-S</v31:code>
+            <v31:description>Group ID changed successfully</v31:description>
+          </v31:GeneralResponse>
+        </v31:ResponseHeader>
+        <v11:responseBody>
+          <v11:message>Group ID updated successfully</v11:message>
+        </v11:responseBody>
+      </v11:changeCustomerTigoPesaGroupResponse>
+    </soapenv:Body>
+  </soapenv:Envelope>`;
+
+  res.set('Content-Type', 'text/xml');
+  res.send(soapResponse);
+});
+
+// ============================================
+// 4. Update Alias Code (SOAP)
+// ============================================
+app.post('/osb/services/UpdateAliasCode_1_0', (req, res) => {
+  console.log('Update Alias Code Request:', req.body);
+
+  const soapResponse = `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+    <soapenv:Header xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:cor="http://soa.mic.co.af/coredata_1" xmlns:v1="http://xmlns.tigo.com/UpdateAliasCodeRequest/V1" xmlns:v2="http://xmlns.tigo.com/ParameterType/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3">
+      <cor:SOATransactionID xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:cor="http://soa.mic.co.af/coredata_1" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:v1="http://xmlns.tigo.com/UpdateAliasCodeRequest/V1" xmlns:v2="http://xmlns.tigo.com/ParameterType/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3">7e705916-4690-4ff3-aa70-9ab8361016a3</cor:SOATransactionID>
+    </soapenv:Header>
+    <soapenv:Body>
+      <v1:UpdateAliasCodeResponse xmlns:v1="http://xmlns.tigo.com/UpdateAliasCodeResponse/V1">
+        <v3:ResponseHeader xmlns:v3="http://xmlns.tigo.com/ResponseHeader/V3">
+          <v3:GeneralResponse>
+            <v3:correlationID>123</v3:correlationID>
+            <v3:status>OK</v3:status>
+            <v3:code>updatealiascode-1174-0000-S</v3:code>
+            <v3:description>The request has been processed successfully</v3:description>
+          </v3:GeneralResponse>
+        </v3:ResponseHeader>
+        <v1:responseBody>
+          <v1:message>Alias code updated successfully</v1:message>
+        </v1:responseBody>
+      </v1:UpdateAliasCodeResponse>
+    </soapenv:Body>
+  </soapenv:Envelope>`;
+
+  res.set('Content-Type', 'text/xml');
+  res.send(soapResponse);
+});
+
+// ============================================
+// 4.1 Change PIN (SOAP)
+// ============================================
+app.post('/osb/services/PinManagement_2_0', (req, res) => {
+  console.log('Change PIN Request:', req.body);
+
+  const soapResponse = `<soapenv:Envelope
+ xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+ <SOAP-ENV:Header
+ xmlns:ns2="http://xmlns.tigo.com/MFS/PinManagementRequest/V2"
+ xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3"
+ xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+ xmlns:ns3="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+ <cor:SOATransactionID
+ xmlns:cor="http://soa.mic.co.af/coredata_1"
+ xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+ xmlns:ns2="http://xmlns.tigo.com/MFS/PinManagementRequest/V2"
+ xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3"
+ xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+ xmlns:ns3="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext1.0.xsd">4af9f03d-7530-4dd8-ba00-08fbbdf09006
+ </cor:SOATransactionID>
+ </SOAP-ENV:Header>
+ <SOAP-ENV:Body
+ xmlns:ns2="http://xmlns.tigo.com/MFS/PinManagementRequest/V2"
+ xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3"
+ xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+ xmlns:ns3="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+ <v1:ChangePinResponse
+ xmlns:v1="http://xmlns.tigo.com/MFS/PinManagementResponse/V1">
+ <v3:ResponseHeader
+ xmlns:v3="http://xmlns.tigo.com/ResponseHeader/V3">
+ <v3:GeneralResponse>
+ <v3:correlationID>693166fa2ad5d</v3:correlationID>
+ <v3:status>OK</v3:status>
+ <v3:code>pinmanagement-2006-0001-S</v3:code>
+ <v3:description>The PIN has been changed Successfully.</v3:description>
+ </v3:GeneralResponse>
+ </v3:ResponseHeader>
+ <v1:responseBody>
+ <v1:transactionId/>
+ </v1:responseBody>
+ </v1:ChangePinResponse>
+ </SOAP-ENV:Body>
+</soapenv:Envelope>`;
+
+  res.set('Content-Type', 'text/xml');
+  res.send(soapResponse);
+});
+
+// ============================================
+// 5. View MFS Account Type (SOAP)
+// ============================================
+app.post('/osb/services/ViewMFSAccountType_1_0', (req, res) => {
+  console.log('View MFS Account Type Request:', req.body);
+
+  const soapResponse = `<soapenv:Envelope
+ xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+ <SOAP-ENV:Header
+ xmlns:ns2="http://xmlns.tigo.com/MFS/ViewMFSAccountTypeRequest/V1"
+ xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3"
+ xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+ xmlns:ns4="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
+ xmlns:ns3="http://soa.mic.co.af/coredata_1">
+ <ns3:SOATransactionID
+ xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+ xmlns:ns2="http://xmlns.tigo.com/MFS/ViewMFSAccountTypeRequest/V1"
+ xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3"
+ xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+ xmlns:ns4="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
+ xmlns:ns3="http://soa.mic.co.af/coredata_1">039ffcde-ab96-4671-ac37-fe29d9839c7e
+ </ns3:SOATransactionID>
+ </SOAP-ENV:Header>
+ <SOAP-ENV:Body
+ xmlns:ns2="http://xmlns.tigo.com/MFS/ViewMFSAccountTypeRequest/V1"
+ xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3"
+ xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+ xmlns:ns4="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
+ xmlns:ns3="http://soa.mic.co.af/coredata_1">
+ <v1:ViewMFSAccountTypeResponse
+ xmlns:v1="http://xmlns.tigo.com/MFS/ViewMFSAccountTypeResponse/V1">
+ <v3:ResponseHeader
+ xmlns:v3="http://xmlns.tigo.com/ResponseHeader/V3">
+ <v3:GeneralResponse>
+ <v3:correlationID>693145a252ec9</v3:correlationID>
+ <v3:status>OK</v3:status>
+ <v3:code>viewmfsaccounttype-3063-0000-S</v3:code>
+ <v3:description>The request has been processed successfully.</v3:description>
+ </v3:GeneralResponse>
+ </v3:ResponseHeader>
+ <v1:responseBody>
+ <v1:msisdn>25577255874</v1:msisdn>
+ <v1:accountID>115688433</v1:accountID>
+ <v1:accountName>25577255874</v1:accountName>
+ <v1:accountType>SUBSCRIBER</v1:accountType>
+ <v1:accountLayer>7</v1:accountLayer>
+ <v1:accountGroup>817</v1:accountGroup>
+ <v1:accountStatus>ACTIVE</v1:accountStatus>
+ <v1:terminalUser>25577255874:null</v1:terminalUser>
+ </v1:responseBody>
+ </v1:ViewMFSAccountTypeResponse>
+ </SOAP-ENV:Body>
+</soapenv:Envelope>`;
+
+  res.set('Content-Type', 'text/xml');
+  res.send(soapResponse);
+});
+
+  // ============================================
+  // 5.1 MMP View MFS Account Type (SOAP)
+  // ============================================
+  app.post('/MMPViewMFSAccountType', (req, res) => {
+    console.log('MMP View MFS Account Type Request:', req.body);
+
+    const soapResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+  <SOAP-ENV:Header xmlns:ns2="http://xmlns.tigo.com/MFS/ViewMFSAccountTypeRequest/V1" xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns4="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:ns3="http://soa.mic.co.af/coredata_1">
+    <ns3:SOATransactionID>36418c15-a1a3-4396-a405-6db99c115ad2</ns3:SOATransactionID>
+  </SOAP-ENV:Header>
+  <SOAP-ENV:Body xmlns:ns2="http://xmlns.tigo.com/MFS/ViewMFSAccountTypeRequest/V1" xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns4="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:ns3="http://soa.mic.co.af/coredata_1">
+    <v1:ViewMFSAccountTypeResponse xmlns:v1="http://xmlns.tigo.com/MFS/ViewMFSAccountTypeResponse/V1">
+      <v3:ResponseHeader xmlns:v3="http://xmlns.tigo.com/ResponseHeader/V3">
+        <v3:GeneralResponse>
+          <v3:correlationID>abc123</v3:correlationID>
+          <v3:status>OK</v3:status>
+          <v3:code>viewmfsaccounttype-3063-0000-S</v3:code>
+          <v3:description>The request has been processed successfully.</v3:description>
+        </v3:GeneralResponse>
+      </v3:ResponseHeader>
+      <v1:responseBody>
+        <v1:msisdn>25571123131</v1:msisdn>
+        <v1:accountID>12236916</v1:accountID>
+        <v1:accountName>25571123131</v1:accountName>
+        <v1:accountType>SUBSCRIBER</v1:accountType>
+        <v1:accountLayer>7</v1:accountLayer>
+        <v1:accountGroup>110</v1:accountGroup>
+        <v1:accountStatus>ACTIVE</v1:accountStatus>
+        <v1:terminalUser>19872474_654949430:null</v1:terminalUser>
+      </v1:responseBody>
+    </v1:ViewMFSAccountTypeResponse>
+  </SOAP-ENV:Body>
+</soapenv:Envelope>`;
+
+    res.set('Content-Type', 'text/xml');
+    res.send(soapResponse);
+  });
+
+  // ============================================
+  // 5.2 MMP Create Handler (SOAP)
+  // ============================================
+  app.post('/MMPCreateHandler', (req, res) => {
+    console.log('MMP Create Handler Request:', req.body);
+
+    const soapResponse = `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+    <SOAP-ENV:Header xmlns:ns2="http://xmlns.tigo.com/MFS/CreateMFSAccountUsernameRequest/V1" xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns4="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:ns3="http://soa.mic.co.af/coredata_1">
+      <ns3:SOATransactionID xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns2="http://xmlns.tigo.com/MFS/CreateMFSAccountUsernameRequest/V1" xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns4="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:ns3="http://soa.mic.co.af/coredata_1">da9d085b-b522-4460-901c-a54ecd79ba14</ns3:SOATransactionID>
+    </SOAP-ENV:Header>
+    <soapenv:Body>
+      <v1:CreateMFSAccountUsernameResponse xmlns:v1="http://xmlns.tigo.com/MFS/CreateMFSAccountUsernameResponse/V1">
+        <v3:ResponseHeader xmlns:v3="http://xmlns.tigo.com/ResponseHeader/V3">
+          <v3:GeneralResponse>
+            <v3:correlationID>693145772a37720b</v3:correlationID>
+            <v3:status>OK</v3:status>
+            <v3:code>createmfsaccountusername-1173-0000-S</v3:code>
+            <v3:description>The request has been processed successfully.</v3:description>
+          </v3:GeneralResponse>
+        </v3:ResponseHeader>
+        <v1:responseBody>
+          <v1:message>Account Username created successfully</v1:message>
+        </v1:responseBody>
+      </v1:CreateMFSAccountUsernameResponse>
+    </soapenv:Body>
+  </soapenv:Envelope>`;
+
+    res.set('Content-Type', 'text/xml');
+    res.send(soapResponse);
+  });
+
+    // ============================================
+    // 5.3 MMP PIN Validation (SOAP)
+    // ============================================
+    app.post('/MMPPinValidation', (req, res) => {
+    console.log('MMP PIN Validation Request:', req.body);
+
+    const soapResponse = `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+    <soapenv:Header xmlns:cor="http://soa.mic.co.af/coredata_1" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:v21="http://xmlns.tigo.com/ParameterType/V2" xmlns:v2="http://xmlns.tigo.com/MFS/AuthenticationRequest/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3">
+      <cor:SOATransactionID xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v21="http://xmlns.tigo.com/ParameterType/V2" xmlns:cor="http://soa.mic.co.af/coredata_1" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:v2="http://xmlns.tigo.com/MFS/AuthenticationRequest/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3">166a7356-e44a-4648-bffc-9a872bf42bca</cor:SOATransactionID>
+    </soapenv:Header>
+    <soapenv:Body xmlns:v21="http://xmlns.tigo.com/ParameterType/V2" xmlns:v2="http://xmlns.tigo.com/MFS/AuthenticationRequest/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3">
+      <v1:authenticateresponse xmlns:v1="http://xmlns.tigo.com/MFS/AuthenticationResponse/V1">
+        <v31:ResponseHeader xmlns:v31="http://xmlns.tigo.com/ResponseHeader/V3">
+          <v31:GeneralResponse>
+            <v31:correlationID>abc123</v31:correlationID>
+            <v31:status>OK</v31:status>
+            <v31:code>authenticate-2007-0000-S</v31:code>
+            <v31:description>The request has been processed successfully</v31:description>
+          </v31:GeneralResponse>
+        </v31:ResponseHeader>
+        <v1:responseBody>
+          <v1:successMessage>User is Successfully Authenticated</v1:successMessage>
+        </v1:responseBody>
+      </v1:authenticateresponse>
+    </soapenv:Body>
+  </soapenv:Envelope>`;
+
+    res.set('Content-Type', 'text/xml');
+    res.send(soapResponse);
+    });
+
+    // ============================================
+    // 5.4.1 MMP Get MFS Balance Proxy (XML)
+    // ============================================
+    app.post('/MMPGetMFSBalanceProxy', (req, res) => {
+    console.log('MMP Get MFS Balance Proxy Request:', req.body);
+
+    const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+  <MTPGGetBalanceResponse>
+    <ResultCode>0</ResultCode>
+    <Message/>
+    <TigoPesa>142475.00000</TigoPesa>
+    <SavingPesa>0.00000</SavingPesa>
+    <Wallet3>0.00000</Wallet3>
+    <Wallet4>0.00000</Wallet4>
+  </MTPGGetBalanceResponse>`;
+
+    res.set('Content-Type', 'application/xml');
+    res.send(xmlResponse);
+    });
+
+    // ============================================
+    // 5.4 MMP Get MFS User Status (SOAP)
+    // ============================================
+    app.post('/MMPGetMFSUserStatus', (req, res) => {
+    console.log('MMP Get MFS User Status Request:', req.body);
+
+    const soapResponse = `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+    <SOAP-ENV:Header xmlns:ns2="http://xmlns.tigo.com/MFS/GetMFSUserStatusRequest/V1" xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns4="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:ns3="http://soa.mic.co.af/coredata_1">
+      <ns3:SOATransactionID xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns2="http://xmlns.tigo.com/MFS/GetMFSUserStatusRequest/V1" xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns4="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:ns3="http://soa.mic.co.af/coredata_1">27932a49-b28e-47b8-865f-94b4af05782f</ns3:SOATransactionID>
+    </SOAP-ENV:Header>
+    <SOAP-ENV:Body xmlns:ns2="http://xmlns.tigo.com/MFS/GetMFSUserStatusRequest/V1" xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns4="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:ns3="http://soa.mic.co.af/coredata_1">
+      <v1:GetMFSUserStatusResponse xmlns:v1="http://xmlns.tigo.com/MFS/GetMFSUserStatusResponse/V1">
+        <v3:ResponseHeader xmlns:v3="http://xmlns.tigo.com/ResponseHeader/V3">
+          <v3:GeneralResponse>
+            <v3:correlationID>63dbc560cf52c</v3:correlationID>
+            <v3:status>OK</v3:status>
+            <v3:code>getmfsuserstatus-3064-0000-S</v3:code>
+            <v3:description>The request has been processed successfully.</v3:description>
+          </v3:GeneralResponse>
+        </v3:ResponseHeader>
+        <v1:responseBody>
+          <v1:userWallet>
+            <v1:msisdn>25571123131</v1:msisdn>
+          </v1:userWallet>
+          <v1:userID>12239094</v1:userID>
+          <v1:userStatus>ACTIVE</v1:userStatus>
+          <v1:statusRemark>Blocked due to wrong pin</v1:statusRemark>
+          <v1:statusChangeReason>Customers request</v1:statusChangeReason>
+        </v1:responseBody>
+      </v1:GetMFSUserStatusResponse>
+    </SOAP-ENV:Body>
+  </soapenv:Envelope>`;
+
+    res.set('Content-Type', 'text/xml');
+    res.send(soapResponse);
+    });
+
+    // ============================================
+    // 5.5 MMP Change PIN (SOAP)
+    // ============================================
+    app.post('/MMPChangePIN', (req, res) => {
+    console.log('MMP Change PIN Request:', req.body);
+
+    const soapResponse = `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+    <soapenv:Header xmlns:v21="http://xmlns.tigo.com/ParameterType/V2" xmlns:cor="http://soa.mic.co.af/coredata_1" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:v2="http://xmlns.tigo.com/MFS/PinManagementRequest/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3">
+      <cor:SOATransactionID xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v21="http://xmlns.tigo.com/ParameterType/V2" xmlns:cor="http://soa.mic.co.af/coredata_1" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:v2="http://xmlns.tigo.com/MFS/PinManagementRequest/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3">ed6c41ff-8a20-4654-9e38-ffb836b2201d</cor:SOATransactionID>
+    </soapenv:Header>
+    <soapenv:Body xmlns:v21="http://xmlns.tigo.com/ParameterType/V2" xmlns:cor="http://soa.mic.co.af/coredata_1" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:v2="http://xmlns.tigo.com/MFS/PinManagementRequest/V2" xmlns:v3="http://xmlns.tigo.com/RequestHeader/V3">
+      <v1:IsChangePinRequestResponse xmlns:v1="http://xmlns.tigo.com/MFS/PinManagementResponse/V1">
+        <v31:ResponseHeader xmlns:v31="http://xmlns.tigo.com/ResponseHeader/V3">
+          <v31:GeneralResponse>
+            <v31:correlationID>abc123</v31:correlationID>
+            <v31:status>OK</v31:status>
+            <v31:code>pinmanagement-2006-0003-S</v31:code>
+            <v31:description>Pin Change Not Required.</v31:description>
+          </v31:GeneralResponse>
+        </v31:ResponseHeader>
+        <v1:responseBody>
+          <v1:statusCode>pinmanagement-2006-0003-S</v1:statusCode>
+          <v1:statusMessage>Pin Change Not Required.</v1:statusMessage>
+        </v1:responseBody>
+      </v1:IsChangePinRequestResponse>
+    </soapenv:Body>
+  </soapenv:Envelope>`;
+
+    res.set('Content-Type', 'text/xml');
+    res.send(soapResponse);
+    });
+
+    // ============================================
+    // 5.6 MMP Disable Terminal User (XML)
+    // ============================================
+    app.post('/MMPDisableTerminalUser', (req, res) => {
+    console.log('MMP Disable Terminal User Request:', req.body);
+
+    const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+  <ChangeUserStatusResponse>
+  <ResultCode>0</ResultCode>
+  <Message/>
+  </ChangeUserStatusResponse>`;
+
+    res.set('Content-Type', 'application/xml');
+    res.send(xmlResponse);
+    });
+
+// ============================================
+// 6. Get Balance (SOAP)
+// ============================================
+app.post('/osb/services/GetBalance_3_0', (req, res) => {
+  console.log('Get Balance Request:', req.body);
+
+  const soapResponse = `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+  <SOAP-ENV:Header
+      xmlns:ns2="http://xmlns.tigo.com/MFS/GetBalanceRequest/V3"
+      xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3"
+      xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+      xmlns:ns3="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+    <cor:SOATransactionID
+        xmlns:cor="http://soa.mic.co.af/coredata_1"
+        xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+        xmlns:ns2="http://xmlns.tigo.com/MFS/GetBalanceRequest/V3"
+        xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3"
+        xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+        xmlns:ns3="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">813849e9-dd67-4b7a-b001-6b3e41e1501b</cor:SOATransactionID>
+  </SOAP-ENV:Header>
+  <SOAP-ENV:Body
+      xmlns:ns2="http://xmlns.tigo.com/MFS/GetBalanceRequest/V3"
+      xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3"
+      xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+      xmlns:ns3="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+    <ns2:GetBalanceResponse xmlns:ns2="http://xmlns.tigo.com/MFS/GetBalanceResponse/V3">
+      <ns1:ResponseHeader xmlns:ns1="http://xmlns.tigo.com/ResponseHeader/V3">
+        <ns1:GeneralResponse>
+          <ns1:correlationID>693154be54482</ns1:correlationID>
+          <ns1:status>OK</ns1:status>
+          <ns1:code>getbalance-2001-0000-S</ns1:code>
+          <ns1:description>The balance information is retrieved successfully.</ns1:description>
+        </ns1:GeneralResponse>
+      </ns1:ResponseHeader>
+      <ns2:responseBody>
+        <ns2:walletCollection>
+          <ns2:wallet>
+            <ns2:walletName>MFS Balance.</ns2:walletName>
+            <ns2:walletBalance>492102.00</ns2:walletBalance>
+          </ns2:wallet>
+        </ns2:walletCollection>
+      </ns2:responseBody>
+    </ns2:GetBalanceResponse>
+  </SOAP-ENV:Body>
+</soapenv:Envelope>`;
+
+  res.set('Content-Type', 'text/xml');
+  res.send(soapResponse);
+});
+
+// ============================================
+// 7. CVM Trigger (XML)
+// ============================================
+app.post('/sim-card-registration', (req, res) => {
+  console.log('CVM Trigger Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Result>0</Result>
+  <Message>Successfully submited message</Message>
+  <RequestId>477d60165950494db0ffc73bd830bb9c</RequestId>
+</Response>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 7.1 Send SMS Handler (JSON)
+// ============================================
+app.post('/SendSMSHandler', (req, res) => {
+  console.log('SendSMSHandler Request:', req.body);
+
+  const response = {
+    Result: 0,
+    Message: 'Successfully submited message',
+    RequestId: req.body?.RequestId || '1736755484-538536049'
+  };
+
+  res.json(response);
+});
+
+  // ============================================
+  // 7.1.1 Send Notification Apigee (SOAP)
+  // ============================================
+  app.post('/live/sendnotificationapigee', (req, res) => {
+    console.log('Send Notification Apigee Request:', req.body);
+
+    const soapResponse = `<?xml version="1.0" encoding="UTF-8"?>
+  <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+    <SOAP-ENV:Header xmlns:ns5="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:ns2="http://xmlns.tigo.com/SendNotificationRequest/V1" xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns4="http://soa.mic.co.af/coredata_1" xmlns:ns3="http://xmlns.tigo.com/ParameterType/V2">
+      <ns4:SOATransactionID>1b4a4dc9-f5aa-42c3-b4e1-c8342577b163</ns4:SOATransactionID>
+    </SOAP-ENV:Header>
+    <SOAP-ENV:Body xmlns:ns5="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" xmlns:ns2="http://xmlns.tigo.com/SendNotificationRequest/V1" xmlns:ns1="http://xmlns.tigo.com/RequestHeader/V3" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns4="http://soa.mic.co.af/coredata_1" xmlns:ns3="http://xmlns.tigo.com/ParameterType/V2">
+      <v1:SendNotificationResponse xmlns:v1="http://xmlns.tigo.com/SendNotificationResponse/V1">
+        <v3:ResponseHeader xmlns:v3="http://xmlns.tigo.com/ResponseHeader/V3">
+          <v3:GeneralResponse>
+            <v3:correlationID>63c54ea4b8b22</v3:correlationID>
+            <v3:status>OK</v3:status>
+            <v3:code>sendnotification-1002-0000-S</v3:code>
+            <v3:description>The notification request has been processed successfully.</v3:description>
+          </v3:GeneralResponse>
+        </v3:ResponseHeader>
+        <v1:ResponseBody>
+          <v1:responseCode>0</v1:responseCode>
+          <v1:responseMessage>SMS delivered successfully.</v1:responseMessage>
+        </v1:ResponseBody>
+      </v1:SendNotificationResponse>
+    </SOAP-ENV:Body>
+  </soapenv:Envelope>`;
+
+    res.set('Content-Type', 'text/xml');
+    res.send(soapResponse);
+  });
+
+// ============================================
+// 7.2 Biller Payment By API Key and User-Id (JSON)
+// ============================================
+app.post('/USSDrouterPushBillpaySupperApp', (req, res) => {
+  console.log('USSDrouterPushBillpaySupperApp Request:', req.body);
+
+  const customerMsisdn = String(req.body?.CustomerMSISDN || '').trim();
+  const referenceId = String(req.body?.ReferenceID || '').trim() || `TST${Date.now()}`;
+
+  if (!/^255\d{9}$/.test(customerMsisdn)) {
+    return res.json({
+      ResponseCode: 'DebitMandate-10-2040-V',
+      ResponseStatus: false,
+      ResponseDescription: 'Invalid Customer MSISDN',
+      ReferenceID: referenceId
+    });
+  }
+
+  if (processedBillpayReferenceIds.has(referenceId)) {
+    return res.json({
+      ResponseCode: 'DuplicateRefID',
+      ResponseStatus: false,
+      ResponseDescription: 'Duplicate Reference ID',
+      ReferenceID: referenceId
+    });
+  }
+
+  processedBillpayReferenceIds.add(referenceId);
+
+  return res.json({
+    ResponseCode: 'BILLER-18-0000-S',
+    ResponseStatus: true,
+    ResponseDescription: 'Request sent to user',
+    ReferenceID: referenceId
+  });
+});
+
+// ============================================
+// 7.3 Request To Pay - Biller Callback (JSON)
+// ============================================
+app.post('/1.0/tz/test/merchant/api/RequestToPay/BillerCallbac', (req, res) => {
+  console.log('RequestToPay Biller Callback Request:', req.body);
+
+  const statusValue = String(req.body?.Status || '').trim().toLowerCase();
+  const isSuccess = statusValue !== 'false';
+  const referenceId = String(req.body?.ReferenceID || '').trim() || (isSuccess ? 'TST1736321974' : 'TST1736326737');
+
+  if (isSuccess) {
+    return res.json({
+      success: true,
+      responseCode: 'BILLER-18-0000-S',
+      transactionStatus: 'true',
+      errorDescription: 'Callback successful',
+      referenceID: referenceId
+    });
+  }
+
+  return res.json({
+    success: false,
+    responseCode: 'BILLER-18-3020-E',
+    transactionStatus: 'false',
+    errorDescription: 'Callback failed',
+    referenceID: referenceId
+  });
+});
+
+app.post('/1.0/tz/test/merchant/api/RequestToPay/BillerCallback', (req, res) => {
+  console.log('RequestToPay Biller Callback Request (Correct Path):', req.body);
+
+  const statusValue = String(req.body?.Status || '').trim().toLowerCase();
+  const isSuccess = statusValue !== 'false';
+  const referenceId = String(req.body?.ReferenceID || '').trim() || (isSuccess ? 'TST1736321974' : 'TST1736326737');
+
+  if (isSuccess) {
+    return res.json({
+      success: true,
+      responseCode: 'BILLER-18-0000-S',
+      transactionStatus: 'true',
+      errorDescription: 'Callback successful',
+      referenceID: referenceId
+    });
+  }
+
+  return res.json({
+    success: false,
+    responseCode: 'BILLER-18-3020-E',
+    transactionStatus: 'false',
+    errorDescription: 'Callback failed',
+    referenceID: referenceId
+  });
+});
+
+// ============================================
+// 8. Super App Transaction Inquiry to Tigo TQS (XML)
+// ============================================
+app.post('/SuperAppTransInquiry2TigoTQS', (req, res) => {
+  console.log('Super App Transaction Inquiry Request:', req.body);
+
+  const requestBody = typeof req.body === 'string' ? req.body : '';
+  const getTagValue = (tagName) => {
+    const match = requestBody.match(new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`, 'i'));
+    return match ? match[1].trim() : '';
+  };
+
+  const type = getTagValue('TYPE') || 'MTPGGetSODetails';
+  const referenceId = getTagValue('REFERENCEID') || 'SUBQ0000000233';
+  const requestMsisdn = getTagValue('MSISDN') || '25565888222';
+  const externalRefId = getTagValue('EXTERNALREFID') || referenceId;
+  const txDate = new Date().toISOString();
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<COMMAND>
+  <TYPE>${type}</TYPE>
+  <RESULTCODE>0</RESULTCODE>
+  <RESULTDESC>Sales order details retrieved successfully</RESULTDESC>
+  <TXNID>26638644052</TXNID>
+  <TXNSTATUS>Posted</TXNSTATUS>
+  <EXTERNALREFID>${externalRefId}</EXTERNALREFID>
+  <REVERSALREQID>${externalRefId}</REVERSALREQID>
+  <BRANDID>187</BRANDID>
+  <MSISDN>${requestMsisdn}</MSISDN>
+  <COMPANYNAME>NMB A2W</COMPANYNAME>
+  <AMOUNT>1000</AMOUNT>
+  <REF>${referenceId}</REF>
+  <DATETRANSACTED>${txDate}</DATETRANSACTED>
+  <CONTROLNO>255654949430</CONTROLNO>
+</COMMAND>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 9. Tigo Payment Gateway - BetPawa Payment (XML) p=7005
+// ============================================
+app.get('/TigoPaymentGateway_1_2', (req, res) => {
+  res.status(405).json({
+    error: 'Method Not Allowed',
+    message: 'Use POST for this endpoint.',
+    examples: [
+      'POST /TigoPaymentGateway_1_2?p=7005',
+      'POST /TigoPaymentGateway_1_2?p=2136',
+      'POST /TigoPaymentGateway_1_2?p=1945',
+      'POST /TigoPaymentGateway_1_2?p=1944',
+      'POST /TigoPaymentGateway_1_2?p=2022'
+    ]
+  });
+});
+
+app.post('/TigoPaymentGateway_1_2', (req, res, next) => {
+  if (req.query.p !== '7005') {
+    return next();
+  }
+
+  console.log('Tigo Payment Gateway BetPawa Payment Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<MTPGPaymentResponse>
+  <ResultCode>0</ResultCode>
+  <Message>Maelezo ya ankara BetPawa, no. ya kampuni: 445445, kumbukumbu no: Paw. Kiasi
+TSh 30,000. Salio jipya TSh 7,645. Ada TSh 600. VAT TSh 92.Muamala:
+26885574977044.27/01/26 07:51.LKS</Message>
+  <OrigAmount>30000.0</OrigAmount>
+  <TransID>26885574977044</TransID>
+  <NewBalance>7645.12</NewBalance>
+  <TotalDebit>30600.00000</TotalDebit>
+  <TotalCharge>600.00000</TotalCharge>
+  <LevyTax>0.00000</LevyTax>
+  <ServiceCharge>0.00000</ServiceCharge>
+  <ReceiverMSISDN>Paw</ReceiverMSISDN>
+  <TargetRefNumber>Paw</TargetRefNumber>
+  <TargetRefName/>
+  <ExtReferenceId>5cec321c-77b8-4d7b-a6a4-3e20463020ad</ExtReferenceId>
+  <BillerAccNumber/>
+  <BillerAccName/>
+  <BillerBankID/>
+  <BillPayer/>
+  <BillPayee/>
+  <PaymentType/>
+  <BrandID>3842</BrandID>
+  <BrandName>BetPawa</BrandName>
+  <VAT>92</VAT>
+  <DCommission2>0</DCommission2>
+  <DCommission3>0</DCommission3>
+</MTPGPaymentResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 9.1 MMP Bill Payment (XML)
+// ============================================
+app.post('/MMPBillPayment', (req, res) => {
+  console.log('MMP Bill Payment Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<MTPGPaymentResponse>
+    <ResultCode>0</ResultCode>
+    <Message>Maelezo ya ankara BetPawa, no. ya kampuni: 445445, kumbukumbu no: Paw. Kiasi TSh 30,000. Salio jipya TSh 7,645.  Ada TSh 600. VAT TSh 92.Muamala: 26885574977044.27/01/26 07:51.LKS</Message>
+    <OrigAmount>30000.0</OrigAmount>
+    <TransID>26885574977044</TransID>
+    <NewBalance>7645.12</NewBalance>
+    <TotalDebit>30600.00000</TotalDebit>
+    <TotalCharge>600.00000</TotalCharge>
+    <LevyTax>0.00000</LevyTax>
+    <ServiceCharge>0.00000</ServiceCharge>
+    <ReceiverMSISDN>Paw</ReceiverMSISDN>
+    <TargetRefNumber>Paw</TargetRefNumber>
+    <TargetRefName/>
+    <ExtReferenceId>5cec321c-77b8-4d7b-a6a4-3e20463020ad</ExtReferenceId>
+    <BillerAccNumber/>
+    <BillerAccName/>
+    <BillerBankID/>
+    <BillPayer/>
+    <BillPayee/>
+    <PaymentType/>
+    <BrandID>3842</BrandID>
+    <BrandName>BetPawa</BrandName>
+    <VAT>92</VAT>
+    <DCommission2>0</DCommission2>
+    <DCommission3>0</DCommission3>
+</MTPGPaymentResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 9. Tigo Payment Gateway - Calculate Fee (XML) p=2136
+// ============================================
+app.post('/TigoPaymentGateway_1_2', (req, res, next) => {
+  if (req.query.p !== '2136') {
+    return next();
+  }
+
+  console.log('Tigo Payment Gateway Calculate Fee Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<CalculateFeeResponse>
+  <ResultCode>0</ResultCode>
+  <Message>Ndugu Mteja BAINA JUMA LUHASI, Weka Namba ya siri
+kulipa TSh 1,000 Ada: TSh 20. kwenda Malipo ya Serikali.</Message>
+  <Fee>20.0</Fee>
+  <BillCtrNum>991040593832</BillCtrNum>
+  <EnteredAmnt>1000.0</EnteredAmnt>
+  <GepgWalletAccNum>001001</GepgWalletAccNum>
+  <SpName>DAR ES SALAAM WATER SUPPLY AND SANITATION
+AUTHORITY</SpName>
+  <BillPayOpt>PART</BillPayOpt>
+  <TargetName>BAINA JUMA LUHASI</TargetName>
+  <COFee>0.0</COFee>
+  <VAT>Malipo ya Serikali</VAT>
+</CalculateFeeResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 10. Tigo Payment Gateway - Send Money GePG (XML) p=1945
+// ============================================
+app.post('/TigoPaymentGateway_1_2', (req, res, next) => {
+  if (req.query.p !== '1945') {
+    return next();
+  }
+
+  console.log('Tigo Payment Gateway Send Money GePG Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<SendMoneyResponse>
+  <ResultCode>0</ResultCode>
+  <Message>Malipo yamekamilika, Kiasi TSh 500 kwenda Malipo ya
+Serikali (001001) kumbukumbu No:991040593832. Muamala
+26885396061019. 09/01/26 10:38.Salio jipya TSh 7,344. Ada
+10.</Message>
+  <OrigAmount>500.0</OrigAmount>
+  <TransID>26885396061019</TransID>
+  <NewBalance>7344.00</NewBalance>
+  <TotalDebit>510.00000</TotalDebit>
+  <TotalCharge>10.00000</TotalCharge>
+  <ReceiverMSISDN>991040593832</ReceiverMSISDN>
+  <COFee>0.0</COFee>
+  <BrandID>1230</BrandID>
+  <BrandName>Malipo ya Serikali Old</BrandName>
+</SendMoneyResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 10.1 MMP Cash Out Payment (XML)
+// ============================================
+app.post('/MMPCashOutPayment', (req, res) => {
+  console.log('MMP Cash Out Payment Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<SendMoneyResponse>
+  <ResultCode>0</ResultCode>
+  <Message>Malipo yamekamilika, Kiasi TSh 500 kwenda Malipo ya
+Serikali (001001) kumbukumbu No:991040593832. Muamala
+26885396061019. 09/01/26 10:38.Salio jipya TSh 7,344. Ada
+10.</Message>
+  <OrigAmount>500.0</OrigAmount>
+  <TransID>26885396061019</TransID>
+  <NewBalance>7344.00</NewBalance>
+  <TotalDebit>510.00000</TotalDebit>
+  <TotalCharge>10.00000</TotalCharge>
+  <ReceiverMSISDN>991040593832</ReceiverMSISDN>
+  <COFee>0.0</COFee>
+  <BrandID>1230</BrandID>
+  <BrandName>Malipo ya Serikali Old</BrandName>
+</SendMoneyResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 10.2 MMP Send Money Payment (XML)
+// ============================================
+app.post('/MMPSendMoneyPayment', (req, res) => {
+  console.log('MMP Send Money Payment Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<SendMoneyResponse>
+  <ResultCode>0</ResultCode>
+  <Message>Malipo yamekamilika, Kiasi TSh 500 kwenda Malipo ya
+Serikali (001001) kumbukumbu No:991040593832. Muamala
+26885396061019. 09/01/26 10:38.Salio jipya TSh 7,344. Ada
+10.</Message>
+  <OrigAmount>500.0</OrigAmount>
+  <TransID>26885396061019</TransID>
+  <NewBalance>7344.00</NewBalance>
+  <TotalDebit>510.00000</TotalDebit>
+  <TotalCharge>10.00000</TotalCharge>
+  <ReceiverMSISDN>991040593832</ReceiverMSISDN>
+  <COFee>0.0</COFee>
+  <BrandID>1230</BrandID>
+  <BrandName>Malipo ya Serikali Old</BrandName>
+</SendMoneyResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 10.2.1 MMP Proxy Transfer (XML)
+// ============================================
+app.post('/MMPProxyTransfer', (req, res) => {
+  console.log('MMP Proxy Transfer Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<MTPGPaymentResponse>
+    <ResultCode>0</ResultCode>
+    <Message>You have paid TSh 1,600 to 255652264417 - SUBIRA HASSANI. Charges TSh 20. VAT TSh 3. TxnID: 26897512256.  . New balance is TSh 142,475. Thank you for using Tigo Pesa.TPESALIPA</Message>
+    <OrigAmount/>
+    <TransID>26897512256</TransID>
+    <NewBalance>142475.00</NewBalance>
+    <TotalDebit>1620.00000</TotalDebit>
+    <TotalCharge>20.00000</TotalCharge>
+    <LevyTax>0.00000</LevyTax>
+    <ServiceCharge>0.00000</ServiceCharge>
+    <ReceiverMSISDN>255652264417</ReceiverMSISDN>
+    <TargetRefNumber>075977345500493</TargetRefNumber>
+    <TargetRefName/>
+    <ExtReferenceId/>
+    <Token/>
+    <BillerAccNumber>255652264417</BillerAccNumber>
+    <BillerAccName>7955643</BillerAccName>
+    <BillerBankID/>
+    <BillPayer/>
+    <BillPayee/>
+    <PaymentType/>
+    <BrandID>2113</BrandID>
+    <BrandName>Merchant.Individual</BrandName>
+    <VAT>3</VAT>
+    <DCommission2>0</DCommission2>
+    <DCommission3>0</DCommission3>
+</MTPGPaymentResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 10.3 Payment (QR & Till code)-MMP-Telepin (XML)
+// ============================================
+app.post('/PaymentQRAndTillCodeMmpTelepin', (req, res) => {
+  console.log('Payment (QR & Till code)-MMP-Telepin Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<SendMoneyResponse>
+  <ResultCode>0</ResultCode>
+  <Message>Malipo yamekamilika, Kiasi TSh 500 kwenda Malipo ya
+Serikali (001001) kumbukumbu No:991040593832. Muamala
+26885396061019. 09/01/26 10:38.Salio jipya TSh 7,344. Ada
+10.</Message>
+  <OrigAmount>500.0</OrigAmount>
+  <TransID>26885396061019</TransID>
+  <NewBalance>7344.00</NewBalance>
+  <TotalDebit>510.00000</TotalDebit>
+  <TotalCharge>10.00000</TotalCharge>
+  <ReceiverMSISDN>991040593832</ReceiverMSISDN>
+  <COFee>0.0</COFee>
+  <BrandID>1230</BrandID>
+  <BrandName>Malipo ya Serikali Old</BrandName>
+</SendMoneyResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 10.4 Request to Pay-(Payment) MMPàTelepin Copy (XML)
+// ============================================
+app.post('/RequestToPayPaymentMmpTelepinCopy', (req, res) => {
+  console.log('Request to Pay-(Payment) MMPàTelepin Copy Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<SendMoneyResponse>
+  <ResultCode>0</ResultCode>
+  <Message>Malipo yamekamilika, Kiasi TSh 500 kwenda Malipo ya
+Serikali (001001) kumbukumbu No:991040593832. Muamala
+26885396061019. 09/01/26 10:38.Salio jipya TSh 7,344. Ada
+10.</Message>
+  <OrigAmount>500.0</OrigAmount>
+  <TransID>26885396061019</TransID>
+  <NewBalance>7344.00</NewBalance>
+  <TotalDebit>510.00000</TotalDebit>
+  <TotalCharge>10.00000</TotalCharge>
+  <ReceiverMSISDN>991040593832</ReceiverMSISDN>
+  <COFee>0.0</COFee>
+  <BrandID>1230</BrandID>
+  <BrandName>Malipo ya Serikali Old</BrandName>
+</SendMoneyResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 11. Tigo Payment Gateway - Calculate Fee Merchant (XML) p=1944
+// ============================================
+app.post('/TigoPaymentGateway_1_2', (req, res, next) => {
+  if (req.query.p !== '1944') {
+    return next();
+  }
+
+  console.log('Tigo Payment Gateway Calculate Fee Merchant Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<CalculateFeeResponse>
+  <ResultCode>0</ResultCode>
+  <Message>Hakiki jina la wakala kisha ingiza namba ya siri kutoa TSh 264,500 kwa wakala EJENI MNJEJA. Jumla ya Makato TSh 500. (Ada TSh 0, Tozo TSh 0)</Message>
+  <Fee>500.0</Fee>
+  <BillCtrNum>255711404306</BillCtrNum>
+  <TotalAmnt>264500.0</TotalAmnt>
+  <GepgWalletAccNum/>
+  <SpName/>
+  <BillPayOpt/>
+  <TargetName>EJENI MAYKO MNJEJA</TargetName>
+  <WakalaMSISDN>255711404306</WakalaMSISDN>
+  <COFee>0.0</COFee>
+  <VAT/>
+  <DestMSISDN>255711404306</DestMSISDN>
+  <Levy>0.0</Levy>
+  <Fees>0.0</Fees>
+  <TotalFee>500.0</TotalFee>
+</CalculateFeeResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 11.1 MPP Cash Out Fee (XML)
+// ============================================
+app.post('/MPPCashOutFee', (req, res) => {
+  console.log('MPP Cash Out Fee Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<CalculateFeeResponse>
+    <ResultCode>0</ResultCode>
+    <Message>Ingiza namba ya siri kutuma TSh 1,000 kwenda kwa mpokeaji wa Halo Pesa ANETH MELKSEDECK GORDIAN - 255615201891.  Jumla ya Makato TSh 45. (Ada TSh 45. Tozo TSh 0).</Message>
+    <Fee>45.0</Fee>
+    <BillCtrNum>255615201891</BillCtrNum>
+    <EnteredAmnt>1000.0</EnteredAmnt>
+    <GepgWalletAccNum/>
+    <SpName>Halo Pesa</SpName>
+    <BillPayOpt/>
+    <TargetName>ANETH MELKSEDECK GORDIAN</TargetName>
+    <WakalaMSISDN>255615201891</WakalaMSISDN>
+    <COFee>0.0</COFee>
+    <VAT>0</VAT>
+    <DestMSISDN>255615201891</DestMSISDN>
+    <Levy>0.0</Levy>
+    <Fees>0.0</Fees>
+    <TotalFee>45.0</TotalFee>
+</CalculateFeeResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 11.2 MMP Calculate Fee Namecheck (XML)
+// ============================================
+app.post('/MMPCalculateFeeNamecheck', (req, res) => {
+  console.log('MMP Calculate Fee Namecheck Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<CalculateFeeResponse>
+    <ResultCode>0</ResultCode>
+    <Message>Ingiza namba ya siri kutuma TSh 1,000 kwenda kwa mpokeaji wa Halo Pesa ANETH MELKSEDECK GORDIAN - 255615201891.  Jumla ya Makato TSh 45. (Ada TSh 45. Tozo TSh 0).</Message>
+    <Fee>45.0</Fee>
+    <BillCtrNum>255615201891</BillCtrNum>
+    <EnteredAmnt>1000.0</EnteredAmnt>
+    <GepgWalletAccNum/>
+    <SpName>Halo Pesa</SpName>
+    <BillPayOpt/>
+    <TargetName>ANETH MELKSEDECK GORDIAN</TargetName>
+    <WakalaMSISDN>255615201891</WakalaMSISDN>
+    <COFee>0.0</COFee>
+    <VAT>0</VAT>
+    <DestMSISDN>255615201891</DestMSISDN>
+    <Levy>0.0</Levy>
+    <Fees>0.0</Fees>
+    <TotalFee>45.0</TotalFee>
+</CalculateFeeResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 11.3 MMP Send Money M2M (XML)
+// ============================================
+app.post('/MMPSendMoneyM2M', (req, res) => {
+  console.log('MMP Send Money M2M Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<CalculateFeeResponse>
+  <ResultCode>0</ResultCode>
+  <Message>Hakiki jina la wakala kisha ingiza namba ya siri kutoa TSh 264,500 kwa wakala EJENI MNJEJA. Jumla ya Makato TSh 500. (Ada TSh 0, Tozo TSh 0)</Message>
+  <Fee>500.0</Fee>
+  <BillCtrNum>255711404306</BillCtrNum>
+  <TotalAmnt>264500.0</TotalAmnt>
+  <GepgWalletAccNum/>
+  <SpName/>
+  <BillPayOpt/>
+  <TargetName>EJENI MAYKO MNJEJA</TargetName>
+  <WakalaMSISDN>255711404306</WakalaMSISDN>
+  <COFee>0.0</COFee>
+  <VAT/>
+  <DestMSISDN>255711404306</DestMSISDN>
+  <Levy>0.0</Levy>
+  <Fees>0.0</Fees>
+  <TotalFee>500.0</TotalFee>
+</CalculateFeeResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 11.4 Request-topay-checkfee (XML)
+// ============================================
+app.post('/Request-topay-checkfee', (req, res) => {
+  console.log('Request-topay-checkfee Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<CalculateFeeResponse>
+  <ResultCode>0</ResultCode>
+  <Message>Hakiki jina la wakala kisha ingiza namba ya siri kutoa TSh 264,500 kwa wakala EJENI MNJEJA. Jumla ya Makato TSh 500. (Ada TSh 0, Tozo TSh 0)</Message>
+  <Fee>500.0</Fee>
+  <BillCtrNum>255711404306</BillCtrNum>
+  <TotalAmnt>264500.0</TotalAmnt>
+  <GepgWalletAccNum/>
+  <SpName/>
+  <BillPayOpt/>
+  <TargetName>EJENI MAYKO MNJEJA</TargetName>
+  <WakalaMSISDN>255711404306</WakalaMSISDN>
+  <COFee>0.0</COFee>
+  <VAT/>
+  <DestMSISDN>255711404306</DestMSISDN>
+  <Levy>0.0</Levy>
+  <Fees>0.0</Fees>
+  <TotalFee>500.0</TotalFee>
+</CalculateFeeResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 12. Tigo Payment Gateway - Bill Query (XML) p=2022
+// ============================================
+app.post('/TigoPaymentGateway_1_2', (req, res) => {
+  console.log('Tigo Payment Gateway Bill Query Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<MTPGBillQueryResponse>
+  <ResultCode>0</ResultCode>
+  <Message>Ndugu Mteja JABIRI IRUNGA, Weka Namba ya siri kulipa TSh 1,000 Ada: TSh 0. Mrejaa Tsh 28. kwenda LUKU GePG</Message>
+  <Fee>0.0</Fee>
+  <BillDueAmount/>
+  <BillerBankAccName/>,
+      'Tigo Payment Gateway Bill Query': 'POST /TigoPaymentGateway_1_2?p=2022'
+  <BillerBankAccNum/>
+  <TotalAmount>1000.0</TotalAmount>
+  <TotalCharge/>
+  <SourceLevyTax>0.0</SourceLevyTax>
+  <SourceOnLevyTax>0.0</SourceOnLevyTax>
+  <ServiceCharge>0.0</ServiceCharge>
+  <ControlNumber>24213028962</ControlNumber>
+  <PaymentOption/>
+  <BrandID>3574</BrandID>
+  <BillPayer>JABIRI IRUNGA</BillPayer>
+  <BillPayee/>
+</MTPGBillQueryResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// 12.1 MMP Bill Query (XML)
+// ============================================
+app.post('/MMPBillQuery', (req, res) => {
+  console.log('MMP Bill Query Request:', req.body);
+
+  const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<MTPGBillQueryResponse>
+  <ResultCode>0</ResultCode>
+  <Message>Ndugu Mteja JABIRI IRUNGA, Weka Namba ya siri kulipa TSh 1,000 Ada: TSh 0. Mrejaa Tsh 28. kwenda LUKU GePG</Message>
+  <Fee>0.0</Fee>
+  <BillDueAmount/>
+  <BillerBankAccName/>,
+      'Tigo Payment Gateway Bill Query': 'POST /TigoPaymentGateway_1_2?p=2022'
+  <BillerBankAccNum/>
+  <TotalAmount>1000.0</TotalAmount>
+  <TotalCharge/>
+  <SourceLevyTax>0.0</SourceLevyTax>
+  <SourceOnLevyTax>0.0</SourceOnLevyTax>
+  <ServiceCharge>0.0</ServiceCharge>
+  <ControlNumber>24213028962</ControlNumber>
+  <PaymentOption/>
+  <BrandID>3574</BrandID>
+  <BillPayer>JABIRI IRUNGA</BillPayer>
+  <BillPayee/>
+</MTPGBillQueryResponse>`;
+
+  res.set('Content-Type', 'application/xml');
+  res.send(xmlResponse);
+});
+
+// ============================================
+// Health Check Endpoint
+// ============================================
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'UP',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      'WSO2 Token': 'POST /oauth2/token',
+      'Get Merchant KYC': 'POST /api/merchant/kyc',
+      'Check Merchant Status': 'POST /tigoagentapp_pesaliveNew/api/merchant/CheckMerchantStatus',
+      'Wallet Account Registration': 'POST /osb/services/UserRegistration_5_0',
+      'Change Group ID': 'POST /osb/services/ChangeCustomerTigoPesaGroup_1_0',
+      'Update Alias Code': 'POST /osb/services/UpdateAliasCode_1_0',
+      'Change PIN': 'POST /osb/services/PinManagement_2_0',
+      'View MFS Account Type': 'POST /osb/services/ViewMFSAccountType_1_0',
+      'MMP View MFS Account Type': 'POST /MMPViewMFSAccountType',
+      'MMP Create Handler': 'POST /MMPCreateHandler',
+      'MMP Get MFS Balance Proxy': 'POST /MMPGetMFSBalanceProxy',
+      'MMP Disable Terminal User': 'POST /MMPDisableTerminalUser',
+      'Get Balance': 'POST /osb/services/GetBalance_3_0',
+      'CVM Trigger': 'POST /sim-card-registration',
+      'Send SMS Handler': 'POST /SendSMSHandler',
+      'Send Notification Apigee': 'POST /live/sendnotificationapigee',
+      'Request to Pay Biller Payment By API Key and User-Id': 'POST /USSDrouterPushBillpaySupperApp',
+      'RequestToPay Biller Callback': 'POST /1.0/tz/test/merchant/api/RequestToPay/BillerCallbac',
+      'RequestToPay Biller Callback (Correct Path)': 'POST /1.0/tz/test/merchant/api/RequestToPay/BillerCallback',
+      'Super App Transaction Inquiry to Tigo TQS': 'POST /SuperAppTransInquiry2TigoTQS',
+      'Tigo Payment Gateway Bill Query': 'POST /TigoPaymentGateway_1_2?p=2022',
+      'MMP Bill Query': 'POST /MMPBillQuery',
+      'MMP Bill Payment': 'POST /MMPBillPayment',
+      'MMP Cash Out Payment': 'POST /MMPCashOutPayment',
+      'MMP Send Money Payment': 'POST /MMPSendMoneyPayment',
+      'MMP Proxy Transfer': 'POST /MMPProxyTransfer',
+      'Payment (QR & Till code)-MMP-Telepin': 'POST /PaymentQRAndTillCodeMmpTelepin',
+      'Request to Pay-(Payment) MMPàTelepin Copy': 'POST /RequestToPayPaymentMmpTelepinCopy',
+      'MPP Cash Out Fee': 'POST /MPPCashOutFee',
+      'MMP Calculate Fee Namecheck': 'POST /MMPCalculateFeeNamecheck',
+      'MMP Send Money M2M': 'POST /MMPSendMoneyM2M',
+      'Request-topay-checkfee': 'POST /Request-topay-checkfee',
+      'Tigo Payment Gateway BetPawa Payment': 'POST /TigoPaymentGateway_1_2?p=7005',
+      'Tigo Payment Gateway Calculate Fee': 'POST /TigoPaymentGateway_1_2?p=2136',
+      'Tigo Payment Gateway Send Money GePG': 'POST /TigoPaymentGateway_1_2?p=1945',
+      'Tigo Payment Gateway Calculate Fee Merchant': 'POST /TigoPaymentGateway_1_2?p=1944'
+    }
+  });
+});
+
+// ============================================
+// Root endpoint
+// ============================================
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <head><title>Mock Server</title></head>
+      <body>
+        <h1>Mock Server is Running</h1>
+        <h2>Available Endpoints:</h2>
+        <ul>
+          <li><strong>GET /health</strong> - Health check</li>
+          <li><strong>POST /oauth2/token</strong> - WSO2 Token (JSON)</li>
+          <li><strong>POST /api/merchant/kyc</strong> - Get Merchant KYC (JSON)</li>
+          <li><strong>POST /tigoagentapp_pesaliveNew/api/merchant/CheckMerchantStatus</strong> - Check Merchant Status (JSON)</li>
+          <li><strong>POST /osb/services/UserRegistration_5_0</strong> - Wallet Account Registration (SOAP)</li>
+          <li><strong>POST /osb/services/ChangeCustomerTigoPesaGroup_1_0</strong> - Change Group ID (SOAP)</li>
+          <li><strong>POST /osb/services/UpdateAliasCode_1_0</strong> - Update Alias Code (SOAP)</li>
+          <li><strong>POST /osb/services/PinManagement_2_0</strong> - Change PIN (SOAP)</li>
+          <li><strong>POST /osb/services/ViewMFSAccountType_1_0</strong> - View MFS Account Type (SOAP)</li>
+          <li><strong>POST /MMPViewMFSAccountType</strong> - MMP View MFS Account Type (SOAP)</li>
+          <li><strong>POST /MMPCreateHandler</strong> - MMP Create Handler (SOAP)</li>
+          <li><strong>POST /MMPGetMFSBalanceProxy</strong> - MMP Get MFS Balance Proxy (XML)</li>
+          <li><strong>POST /MMPDisableTerminalUser</strong> - MMP Disable Terminal User (XML)</li>
+          <li><strong>POST /osb/services/GetBalance_3_0</strong> - Get Balance (SOAP)</li>
+          <li><strong>POST /SuperAppTransInquiry2TigoTQS</strong> - Super App Transaction Inquiry to Tigo TQS (XML)</li>
+          <li><strong>POST /SendSMSHandler</strong> - Send SMS Handler (JSON)</li>
+          <li><strong>POST /live/sendnotificationapigee</strong> - Send Notification Apigee (SOAP)</li>
+          <li><strong>POST /USSDrouterPushBillpaySupperApp</strong> - Biller Payment By API Key and User-Id (JSON)</li>
+          <li><strong>POST /1.0/tz/test/merchant/api/RequestToPay/BillerCallbac</strong> - RequestToPay Biller Callback (JSON)</li>
+          <li><strong>POST /1.0/tz/test/merchant/api/RequestToPay/BillerCallback</strong> - RequestToPay Biller Callback (JSON)</li>
+          <li><strong>POST /TigoPaymentGateway_1_2?p=2022</strong> - Tigo Payment Gateway Bill Query (XML)</li>
+          <li><strong>POST /MMPBillQuery</strong> - MMP Bill Query (XML)</li>
+          <li><strong>POST /MMPBillPayment</strong> - MMP Bill Payment (XML)</li>
+          <li><strong>POST /MMPCashOutPayment</strong> - MMP Cash Out Payment (XML)</li>
+          <li><strong>POST /MMPSendMoneyPayment</strong> - MMP Send Money Payment (XML)</li>
+          <li><strong>POST /MMPProxyTransfer</strong> - MMP Proxy Transfer (XML)</li>
+          <li><strong>POST /PaymentQRAndTillCodeMmpTelepin</strong> - Payment (QR &amp; Till code)-MMP-Telepin (XML)</li>
+          <li><strong>POST /RequestToPayPaymentMmpTelepinCopy</strong> - Request to Pay-(Payment) MMPàTelepin Copy (XML)</li>
+          <li><strong>POST /MPPCashOutFee</strong> - MPP Cash Out Fee (XML)</li>
+          <li><strong>POST /MMPCalculateFeeNamecheck</strong> - MMP Calculate Fee Namecheck (XML)</li>
+          <li><strong>POST /MMPSendMoneyM2M</strong> - MMP Send Money M2M (XML)</li>
+          <li><strong>POST /Request-topay-checkfee</strong> - Request-topay-checkfee (XML)</li>
+          <li><strong>POST /TigoPaymentGateway_1_2?p=7005</strong> - Tigo Payment Gateway BetPawa Payment (XML)</li>
+          <li><strong>POST /TigoPaymentGateway_1_2?p=2136</strong> - Tigo Payment Gateway Calculate Fee (XML)</li>
+          <li><strong>POST /TigoPaymentGateway_1_2?p=1945</strong> - Tigo Payment Gateway Send Money GePG (XML)</li>
+          <li><strong>POST /TigoPaymentGateway_1_2?p=1944</strong> - Tigo Payment Gateway Calculate Fee Merchant (XML)</li>
+          <li><strong>POST /sim-card-registration</strong> - CVM Trigger (XML)</li>
+        </ul>
+        <p>Server Time: ${new Date().toISOString()}</p>
+      </body>
+    </html>
+  `);
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log('==============================================');
+  console.log(`🚀 Mock Server is running on http://localhost:${PORT}`);
+  console.log('==============================================');
+  console.log('Available Endpoints:');
+  console.log('  - GET  /health');
+  console.log('  - POST /oauth2/token');
+  console.log('  - POST /api/merchant/kyc');
+  console.log('  - POST /tigoagentapp_pesaliveNew/api/merchant/CheckMerchantStatus');
+  console.log('  - POST /osb/services/UserRegistration_5_0');
+  console.log('  - POST /osb/services/ChangeCustomerTigoPesaGroup_1_0');
+  console.log('  - POST /osb/services/PinManagement_2_0');
+  console.log('  - POST /SuperAppTransInquiry2TigoTQS');
+  console.log('  - POST /TigoPaymentGateway_1_2?p=2022');
+  console.log('  - POST /MMPBillQuery');
+  console.log('  - POST /MMPBillPayment');
+  console.log('  - POST /MMPCashOutPayment');
+  console.log('  - POST /MMPSendMoneyPayment');
+  console.log('  - POST /MMPProxyTransfer');
+  console.log('  - POST /PaymentQRAndTillCodeMmpTelepin');
+  console.log('  - POST /RequestToPayPaymentMmpTelepinCopy');
+  console.log('  - POST /MPPCashOutFee');
+  console.log('  - POST /MMPCalculateFeeNamecheck');
+  console.log('  - POST /MMPSendMoneyM2M');
+  console.log('  - POST /Request-topay-checkfee');
+  console.log('  - POST /TigoPaymentGateway_1_2?p=7005');
+  console.log('  - POST /TigoPaymentGateway_1_2?p=2136');
+  console.log('  - POST /TigoPaymentGateway_1_2?p=1945');
+  console.log('  - POST /TigoPaymentGateway_1_2?p=1944');
+  console.log('  - POST /osb/services/UpdateAliasCode_1_0');
+  console.log('  - POST /osb/services/ViewMFSAccountType_1_0');
+  console.log('  - POST /MMPViewMFSAccountType');
+  console.log('  - POST /MMPCreateHandler');
+  console.log('  - POST /MMPGetMFSBalanceProxy');
+  console.log('  - POST /MMPDisableTerminalUser');
+  console.log('  - POST /USSDrouterPushBillpaySupperApp');
+  console.log('  - POST /1.0/tz/test/merchant/api/RequestToPay/BillerCallbac');
+  console.log('  - POST /1.0/tz/test/merchant/api/RequestToPay/BillerCallback');
+  console.log('  - POST /osb/services/GetBalance_3_0');
+  console.log('  - POST /SendSMSHandler');
+  console.log('  - POST /live/sendnotificationapigee');
+  console.log('  - POST /sim-card-registration');
+  console.log('==============================================\n');
+});
+
