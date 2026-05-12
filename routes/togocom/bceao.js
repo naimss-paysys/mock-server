@@ -85,13 +85,37 @@ router.post('/bceao-api/v1/alias/validate-creationinitiated', (req, res) => {
 // ── QR Code Generate ──────────────────────────────────────────
 router.post('/bceao-api/v1/features/qr-generate', (req, res) => {
   console.log('QR Generate Request:', req.body);
-  const alias  = req.body.alias || '59a42d4c-704e-43fb-9927-978b43c0ea22';
-  const txId   = req.body.txId  || 'AAAA256488888';
-  const amount = req.body.transactionAmount || 100;
-  const qrstring = `00020136560012int.bceao.pi0136${alias}020${String(amount).padStart(3, '0')}5204000053036470540${amount}5802TG5904TOGO6007Lomé62070703${txId}6304ABCD`;
+
+  const msisdn   = req.body?.msisdn   || req.body?.alias  || '22890898190';
+  const amount   = req.body?.amount   || req.body?.transactionAmount || '100';
+  const currency = req.body?.currency || 'XOF';
+  const type     = req.body?.type     || 'static'; // static | dynamic
+  const txId     = req.body?.txId     || `TX${Date.now()}`;
+
+  // Build a BCEAO-style QR string from the supplied params
+  const amountPadded = String(Number(amount)).padStart(3, '0');
+  const qrstring = [
+    '00020101021',
+    type === 'static' ? '1' : '2',
+    '29300012int.bceao.pi0136',
+    msisdn,
+    '020',
+    amountPadded,
+    `5204000053036470540${amount}5802TG5904TOGO6007Lome`,
+    `620703${txId.slice(0, 13)}`,
+    '6304ABCD',
+  ].join('');
+
   res.json({
     status: { code: 202, message: 'SUCCESS', description: 'This request has succeeded.' },
-    data: { message: 'Your request has been executed with success', qrstring },
+    data: {
+      message: 'Your request has been executed with success',
+      qrstring,
+      msisdn,
+      amount,
+      currency,
+      type,
+    },
   });
 });
 
