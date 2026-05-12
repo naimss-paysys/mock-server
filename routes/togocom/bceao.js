@@ -83,27 +83,40 @@ router.post('/bceao-api/v1/alias/validate-creationinitiated', (req, res) => {
 });
 
 // ── QR Code Generate ──────────────────────────────────────────
-router.post('/bceao-api/v1/features/qr-generate', (req, res) => {
+// Real path: POST /bceaoapi/v1/features/qrstring
+router.post('/bceao-api/v1/features/qrstring', (req, res) => {
   console.log('QR Generate Request:', req.body);
 
-  const msisdn   = req.body?.msisdn   || req.body?.alias  || '22890898190';
-  const amount   = req.body?.amount   || req.body?.transactionAmount || '100';
-  const currency = req.body?.currency || 'XOF';
-  const type     = req.body?.type     || 'static'; // static | dynamic
-  const txId     = req.body?.txId     || `TX${Date.now()}`;
+  const alias    = req.body?.alias             || '59a42d4c-704e-43fb-9927-978b43c0ea22';
+  const txId     = String(req.body?.txId       || 'AAAA256488888').slice(0, 13).padEnd(13, '0');
+  const amount   = req.body?.transactionAmount || 100;
 
-  // Build a BCEAO-style QR string from the supplied params
-  const amountPadded = String(Number(amount)).padStart(3, '0');
+  // Build EMVCo-compatible BCEAO QR string
+  // Tag 36 — merchant account info (always 56 chars for a UUID alias)
+  const merchantInfo    = `0012int.bceao.pi0136${alias}`;
+  const merchantInfoLen = String(merchantInfo.length).padStart(2, '0');
+
+  // Tag 54 — transaction amount
+  const amountStr = String(amount);
+  const amountLen = String(amountStr.length).padStart(2, '0');
+  const amountTag = `54${amountLen}${amountStr}`;
+
+  // Tag 62 — additional data: sub-tag 05 = txId (13 chars), sub-tag 11 = canal (3 chars)
+  const txIdLen        = String(txId.length).padStart(2, '0');
+  const additionalData = `05${txIdLen}${txId}1103731`;
+  const additionalLen  = String(additionalData.length).padStart(2, '0');
+
   const qrstring = [
-    '00020101021',
-    type === 'static' ? '1' : '2',
-    '29300012int.bceao.pi0136',
-    msisdn,
-    '020',
-    amountPadded,
-    `5204000053036470540${amount}5802TG5904TOGO6007Lome`,
-    `620703${txId.slice(0, 13)}`,
-    '6304ABCD',
+    '000201',
+    `36${merchantInfoLen}${merchantInfo}`,
+    '52040000',
+    '5303952',
+    amountTag,
+    '5802TG',
+    '5901X',
+    '6001X',
+    `62${additionalLen}${additionalData}`,
+    '63044E2A',  // CRC placeholder (real servers compute CRC-16/CCITT)
   ].join('');
 
   res.json({
@@ -111,25 +124,38 @@ router.post('/bceao-api/v1/features/qr-generate', (req, res) => {
     data: {
       message: 'Your request has been executed with success',
       qrstring,
-      msisdn,
-      amount,
-      currency,
-      type,
     },
   });
 });
 
 // ── QR Code Decode ─────────────────────────────────────────────
-router.post('/bceao-api/v1/features/qr-decode', (req, res) => {
+// Real path: POST /bceaoapi/v1/features/qrstring-decode
+router.post('/bceao-api/v1/features/qrstring-decode', (req, res) => {
   console.log('QR Decode Request:', req.body);
-  const qrstring   = req.body.qrstring || '';
+
+  const qrstring = req.body?.qrstring || '';
+
+  // Parse alias (tag 36 sub-tag 01 — 36-char UUID after "int.bceao.pi0136")
   const aliasMatch = qrstring.match(/int\.bceao\.pi0136([0-9a-f-]{36})/i);
   const alias      = aliasMatch ? aliasMatch[1] : '59a42d4c-704e-43fb-9927-978b43c0ea22';
+
+  // Parse amount (tag 54 — digits immediately after "54NN")
+  const amountMatch = qrstring.match(/54\d{2}(\d+)/);
+  const amount      = amountMatch ? amountMatch[1] : '100';
+
+  // Parse txId (sub-tag 05 inside tag 62 — 13 chars after "0513")
+  const txIdMatch = qrstring.match(/0513([A-Z0-9]{13})/);
+  const txId      = txIdMatch ? txIdMatch[1] : 'AAAA256488888';
+
+  // Parse canal (sub-tag 11 inside tag 62 — 3 chars after "1103")
+  const canalMatch = qrstring.match(/1103(\d{3})/);
+  const canal      = canalMatch ? canalMatch[1] : '731';
+
   res.json({
     status: { code: 202, message: 'SUCCESS', description: 'This request has succeeded.' },
     data: {
       message: 'Your request has been executed with success',
-      item: { alias, amount: '100', txId: 'AAAA256488888', canal: '731' },
+      item: { alias, amount, txId, canal },
     },
   });
 });

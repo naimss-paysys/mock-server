@@ -426,16 +426,16 @@ const curlExamples = {
     `  -d '{"alias":"22890898190","otp":"123456","requestId":"REQ-001"}'`,
 
   'togo-qr-generate':
-    `curl -s -X POST http://localhost:${PORT}/bceao-api/v1/features/qr-generate \\\n` +
+    `curl -s -X POST http://localhost:${PORT}/bceao-api/v1/features/qrstring \\\n` +
     `  -H 'Authorization: Bearer test-token' \\\n` +
     `  -H 'Content-Type: application/json' \\\n` +
-    `  -d '{"msisdn":"22890898190","amount":"5000","currency":"XOF","type":"static"}'`,
+    `  -d '{"requestId":"TEST1","requestCaller":"APPMOBILE","alias":"59a42d4c-704e-43fb-9927-978b43c0ea22","txId":"AAAA256488888","transactionAmount":100,"categoryClient":"P","type":"D"}'`,
 
   'togo-qr-decode':
-    `curl -s -X POST http://localhost:${PORT}/bceao-api/v1/features/qr-decode \\\n` +
+    `curl -s -X POST http://localhost:${PORT}/bceao-api/v1/features/qrstring-decode \\\n` +
     `  -H 'Authorization: Bearer test-token' \\\n` +
     `  -H 'Content-Type: application/json' \\\n` +
-    `  -d '{"qrData":"00020101021229300012D156000000000510A93FO3230Q31280012D15600000000050308123456785204411158025820Lome6304AB90"}'`,
+    `  -d '{"requestId":"TEST1","requestCaller":"APPMOBILE","qrstring":"000201365600 12int.bceao.pi013659a42d4c-704e-43fb-9927-978b43c0ea2252040000530395240310058 02TG5901X6001X62240513AAAA256488888110373163044E2A"}'`,
 
   'togo-pi-payment-request':
     `curl -s -X POST http://localhost:${PORT}/bceao-api/v1/payment-request/request \\\n` +
@@ -597,8 +597,8 @@ app.get('/health', (req, res) => {
         'PI Alias Update': 'POST /bceao-api/v1/alias/initiate-update',
         'PI Alias Creation': 'POST /bceao-api/v1/alias/initiate-creation',
         'PI Confirm Alias Creation': 'POST /bceao-api/v1/alias/validate-creationinitiated',
-        'QR Code Generate': 'POST /bceao-api/v1/features/qr-generate',
-        'QR Code Decode': 'POST /bceao-api/v1/features/qr-decode',
+        'QR Code Generate': 'POST /bceao-api/v1/features/qrstring',
+        'QR Code Decode': 'POST /bceao-api/v1/features/qrstring-decode',
         'PI Payment Request': 'POST /bceao-api/v1/payment-request/request',
       },
       'TOGOCOM — Auth & Misc': {
@@ -798,8 +798,8 @@ app.get('/', (req, res) => {
     <li data-key="togo-pi-alias-update" data-label="POST /bceao-api/v1/alias/initiate-update — PI Alias Update"><span class="method post">POST</span> <code>/bceao-api/v1/alias/initiate-update</code> — PI Alias Update</li>
     <li data-key="togo-pi-alias-creation" data-label="POST /bceao-api/v1/alias/initiate-creation — PI Alias Creation"><span class="method post">POST</span> <code>/bceao-api/v1/alias/initiate-creation</code> — PI Alias Creation</li>
     <li data-key="togo-pi-confirm-creation" data-label="POST /bceao-api/v1/alias/validate-creationinitiated — PI Confirm Alias Creation"><span class="method post">POST</span> <code>/bceao-api/v1/alias/validate-creationinitiated</code> — PI Confirm Alias Creation</li>
-    <li data-key="togo-qr-generate" data-label="POST /bceao-api/v1/features/qr-generate — QR Code Generate"><span class="method post">POST</span> <code>/bceao-api/v1/features/qr-generate</code> — QR Code Generate</li>
-    <li data-key="togo-qr-decode" data-label="POST /bceao-api/v1/features/qr-decode — QR Code Decode"><span class="method post">POST</span> <code>/bceao-api/v1/features/qr-decode</code> — QR Code Decode</li>
+    <li data-key="togo-qr-generate" data-label="POST /bceao-api/v1/features/qrstring — QR Code Generate"><span class="method post">POST</span> <code>/bceao-api/v1/features/qrstring</code> — QR Code Generate</li>
+    <li data-key="togo-qr-decode" data-label="POST /bceao-api/v1/features/qrstring-decode — QR Code Decode"><span class="method post">POST</span> <code>/bceao-api/v1/features/qrstring-decode</code> — QR Code Decode</li>
     <li data-key="togo-pi-payment-request" data-label="POST /bceao-api/v1/payment-request/request — PI Payment Request"><span class="method post">POST</span> <code>/bceao-api/v1/payment-request/request</code> — PI Payment Request</li>
   </ul>
 
