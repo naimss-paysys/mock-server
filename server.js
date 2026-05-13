@@ -456,6 +456,11 @@ const curlExamples = {
     `  -H 'Content-Type: application/json' \\\n` +
     `  -d '{"msisdn":"22890898190","amount":"50000","transactionType":"sendmoney"}'`,
 
+  'reis-aml':
+    `curl -s -X POST http://localhost:${PORT}/reis-aml \\\n` +
+    `  -H 'Content-Type: application/json' \\\n` +
+    `  -d '{"data":[{"accountData":[{"op":"replace","path":"/status","value":"3"},{"op":"replace","path":"/name","value":"YOVO"},{"op":"replace","path":"/last_name","value":"JULBEC"},{"op":"replace","path":"/nationality","value":"TOGO"},{"op":"replace","path":"/placeOfBirth","value":"Lome"},{"op":"replace","path":"/address_country","value":"TOGO"},{"op":"replace","path":"/activity_domain","value":"COMMERCE"},{"op":"replace","path":"/id_number","value":"0294-580-8060"},{"op":"replace","path":"/id_type","value":"national_id"},{"op":"replace","path":"/id_del_date","value":"2025-10-10"},{"op":"replace","path":"/id_exp_date","value":"2029-10-10"},{"op":"replace","path":"/organization","value":"ETS LA GRACE"},{"op":"replace","path":"/gender","value":"M"},{"op":"replace","path":"/limit_kyc","value":"KYC 2 (full registration / certification)"},{"op":"replace","path":"/date_of_birth","value":"1962-12-31"}]}],"msisdn":"92790014"}'`,
+
   'togo-forget-pin-get':
     `curl -s -X GET 'http://localhost:${PORT}/self-reset-pin/v1/get-data?msisdn=22890898190' \\\n` +
     `  -H 'Authorization: Bearer test-token'`,
@@ -603,7 +608,8 @@ app.get('/health', (req, res) => {
       },
       'TOGOCOM — Auth & Misc': {
         'Get OTP': 'POST /otp/v1',
-        'AML Check': 'POST /reis-apis/v1/reis-aml',
+        'AML Check (legacy)': 'POST /reis-apis/v1/reis-aml',
+        'REIS-AML Onboarding': 'POST /reis-aml',
         'Forget PIN — Get Data': 'GET /self-reset-pin/v1/get-data',
         'Forget PIN — Process Reset': 'POST /self-reset-pin/v1/process',
       },
@@ -806,7 +812,8 @@ app.get('/', (req, res) => {
   <h2>Togocom — Auth &amp; Misc</h2>
   <ul>
     <li data-key="togo-get-otp" data-label="POST /otp/v1 — Get OTP"><span class="method post">POST</span> <code>/otp/v1</code> — Get OTP</li>
-    <li data-key="togo-aml" data-label="POST /reis-apis/v1/reis-aml — AML Check"><span class="method post">POST</span> <code>/reis-apis/v1/reis-aml</code> — AML Check</li>
+    <li data-key="togo-aml" data-label="POST /reis-apis/v1/reis-aml — AML Check (legacy)"><span class="method post">POST</span> <code>/reis-apis/v1/reis-aml</code> — AML Check (legacy)</li>
+    <li data-key="reis-aml" data-label="POST /reis-aml — REIS-AML Onboarding"><span class="method post">POST</span> <code>/reis-aml</code> — REIS-AML Onboarding</li>
     <li data-key="togo-forget-pin-get" data-label="GET /self-reset-pin/v1/get-data — Forget PIN Get Data"><span class="method get">GET</span>   <code>/self-reset-pin/v1/get-data</code> — Forget PIN Get Data</li>
     <li data-key="togo-forget-pin-process" data-label="POST /self-reset-pin/v1/process — Forget PIN Process"><span class="method post">POST</span> <code>/self-reset-pin/v1/process</code> — Forget PIN Process</li>
   </ul>

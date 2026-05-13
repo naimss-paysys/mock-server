@@ -178,11 +178,76 @@ router.post('/otp/v1', (req, res) => {
   });
 });
 
-// ── AML Check ─────────────────────────────────────────────────
+// ── AML Check (legacy path) ────────────────────────────────────
 router.post('/reis-apis/v1/reis-aml', (req, res) => {
   console.log('AML Request:', req.body);
   res.json({
     status: { code: 200, message: 'Success', description: 'Client onboard succeffuly' },
+    data: null,
+  });
+});
+
+// ── AML Check — REIS-AML (POST /reis-aml) ─────────────────────
+// Mirrors: https://reis-aml-prp.yas.tg/reis-aml
+//
+// Request body:
+//   { "data": [{ "accountData": [ { "op": "replace", "path": "/fieldName", "value": "..." }, ... ] }], "msisdn": "92790014" }
+//
+// Mandatory accountData paths:
+//   /status, /name, /last_name, /nationality, /placeOfBirth,
+//   /address_country, /activity_domain, /id_number, /id_type,
+//   /id_del_date, /id_exp_date, /organization, /gender,
+//   /limit_kyc, /date_of_birth
+//
+// Success  → { status: { code: 200, message: "Success", description: "Client onboard successfuly" }, data: null }
+// Failure  → { status: { code: 4002, message: "Bad request", description: "Missing mandatory parameters: <field>" }, data: null }
+router.post('/reis-aml', (req, res) => {
+  console.log('REIS-AML Request:', JSON.stringify(req.body, null, 2));
+
+  const { msisdn, data } = req.body || {};
+
+  // ── top-level msisdn ──────────────────────────────────────────
+  if (!msisdn) {
+    return res.status(200).json({
+      status: { code: 4002, message: 'Bad request', description: 'Missing mandatory parameters: msisdn' },
+      data: null,
+    });
+  }
+
+  // ── extract accountData from first element ────────────────────
+  const accountData = Array.isArray(data) && data[0] && Array.isArray(data[0].accountData)
+    ? data[0].accountData
+    : [];
+
+  // Build a map of path → value for quick lookup
+  const fields = {};
+  for (const entry of accountData) {
+    if (entry && entry.path) {
+      fields[entry.path] = entry.value;
+    }
+  }
+
+  // ── mandatory field check ─────────────────────────────────────
+  const mandatory = [
+    '/status', '/name', '/last_name', '/nationality', '/placeOfBirth',
+    '/address_country', '/activity_domain', '/id_number', '/id_type',
+    '/id_del_date', '/id_exp_date', '/organization', '/gender',
+    '/limit_kyc', '/date_of_birth',
+  ];
+
+  for (const path of mandatory) {
+    if (fields[path] === undefined || fields[path] === null || fields[path] === '') {
+      const fieldName = path.replace('/', '');
+      return res.status(200).json({
+        status: { code: 4002, message: 'Bad request', description: `Missing mandatory parameters: ${fieldName}` },
+        data: null,
+      });
+    }
+  }
+
+  // ── success ───────────────────────────────────────────────────
+  res.json({
+    status: { code: 200, message: 'Success', description: 'Client onboard successfuly' },
     data: null,
   });
 });
