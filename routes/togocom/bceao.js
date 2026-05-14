@@ -47,19 +47,26 @@ router.post('/bceao-api/v1/alias/initiate-update', (req, res) => {
 // ── PI Alias Creation ──────────────────────────────────────────
 router.post('/bceao-api/v1/alias/initiate-creation', (req, res) => {
   console.log('PI Alias Creation Request:', req.body);
-  const otp = Math.floor(100000 + Math.random() * 900000);
+
+  const { id, type, compte, requestId, requestCaller } = req.body || {};
+  const missing = ['id', 'type', 'compte', 'requestId', 'requestCaller'].filter(
+    (f) => !req.body?.[f]
+  );
+  if (missing.length) {
+    return res.status(400).json({
+      status: { code: 400, message: 'BAD_REQUEST', description: `Missing required fields: ${missing.join(', ')}` },
+    });
+  }
+
   res.json({
     status: { code: 200, message: 'SUCCESS', description: 'This request has succeeded.' },
     data: {
-      message: 'Alias creation initiated!',
+      message: 'Alias creation is on going.',
       data: {
-        otp: {
-          status: { code: 200, message: 'success', description: 'Data saved successfully.' },
-          data: otp,
-        },
-        numPhone: req.body.id || req.body.compte || '90008869',
-        typeAlias: req.body.type || 'MBNO',
-        requestId: req.body.requestId || '',
+        status: true,
+        http: 202,
+        data: { message: "Demande de création d'alias en cours de traitement" },
+        reason: '',
       },
     },
   });
