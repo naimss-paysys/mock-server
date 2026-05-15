@@ -417,7 +417,7 @@ const curlExamples = {
     `curl -s -X POST http://localhost:${PORT}/bceao-api/v1/alias/initiate-creation \\\n` +
     `  -H 'Authorization: Bearer test-token' \\\n` +
     `  -H 'Content-Type: application/json' \\\n` +
-    `  -d '{"alias":"22890898190","aliasType":"MSISDN","accountId":"12345678"}'`,
+    `  -d '{"id":"22895075","type":"SHID","compte":"22895075","requestId":"RQID202505369123","requestCaller":"APPMOBILE"}'`,
 
   'togo-pi-confirm-creation':
     `curl -s -X POST http://localhost:${PORT}/bceao-api/v1/alias/validate-creationinitiated \\\n` +
