@@ -631,8 +631,7 @@ app.get('/health', (req, res) => {
       },
       'TOGOCOM — Auth & Misc': {
         'Get OTP': 'POST /otp/v1',
-        'AML Check (legacy)': 'POST /reis-apis/v1/reis-aml',
-        'REIS-AML Onboarding': 'POST /reis-aml',
+        'REIS-AML Onboarding': 'POST /reis-apis/v1/reis-aml',
         'Forget PIN — Get Data': 'GET /self-reset-pin/v1/get-data',
         'Forget PIN — Process Reset': 'POST /self-reset-pin/v1/process',
       },
@@ -835,8 +834,7 @@ app.get('/', (req, res) => {
   <h2>Togocom — Auth &amp; Misc</h2>
   <ul>
     <li data-key="togo-get-otp" data-label="POST /otp/v1 — Get OTP"><span class="method post">POST</span> <code>/otp/v1</code> — Get OTP</li>
-    <li data-key="togo-aml" data-label="POST /reis-apis/v1/reis-aml — AML Check (legacy)"><span class="method post">POST</span> <code>/reis-apis/v1/reis-aml</code> — AML Check (legacy)</li>
-    <li data-key="reis-aml" data-label="POST /reis-aml — REIS-AML Onboarding"><span class="method post">POST</span> <code>/reis-aml</code> — REIS-AML Onboarding</li>
+    <li data-key="reis-aml" data-label="POST /reis-apis/v1/reis-aml — REIS-AML Onboarding"><span class="method post">POST</span> <code>/reis-apis/v1/reis-aml</code> — REIS-AML Onboarding</li>
     <li data-key="togo-forget-pin-get" data-label="GET /self-reset-pin/v1/get-data — Forget PIN Get Data"><span class="method get">GET</span>   <code>/self-reset-pin/v1/get-data</code> — Forget PIN Get Data</li>
     <li data-key="togo-forget-pin-process" data-label="POST /self-reset-pin/v1/process — Forget PIN Process"><span class="method post">POST</span> <code>/self-reset-pin/v1/process</code> — Forget PIN Process</li>
   </ul>
