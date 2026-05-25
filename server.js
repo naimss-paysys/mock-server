@@ -25,9 +25,27 @@
 
 const express    = require('express');
 const bodyParser = require('body-parser');
+const os         = require('os');
 const { PORT, BASE_URLS } = require('./config');
 
 const app = express();
+
+// ─── Detect the machine's IP for curl examples ──────────────────
+// Checks for known server IPs (10.245.0.11, 10.0.150.126); falls
+// back to localhost when running on a dev machine.
+function getLocalHost() {
+  const KNOWN_IPS = ['10.245.0.11', '10.0.150.126'];
+  const ifaces = os.networkInterfaces();
+  for (const iface of Object.values(ifaces)) {
+    for (const addr of iface) {
+      if (addr.family === 'IPv4' && KNOWN_IPS.includes(addr.address)) {
+        return addr.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+const HOST = getLocalHost();
 
 // ─── cURL Examples (injected into the homepage) ─────────────────
 const curlExamples = {
@@ -472,6 +490,11 @@ const curlExamples = {
     `  -d '{"msisdn":"22890898190","newPin":"5678","otp":"123456"}'`,
 };
 
+// Replace 'localhost' with the detected machine IP in all curl examples
+Object.keys(curlExamples).forEach(key => {
+  curlExamples[key] = curlExamples[key].replace(/localhost/g, HOST);
+});
+
 // ─── Middleware ─────────────────────────────────────────────────
 app.use(bodyParser.json());
 app.use(bodyParser.text({ type: 'text/xml' }));
@@ -863,13 +886,36 @@ app.get('/', (req, res) => {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
+    function markCopied() {
+      copyBtn.textContent = 'Copied ✓';
+      copyBtn.classList.add('copied');
+      setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 2000);
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand('copy');
+        markCopied();
+      } catch (e) {
+        copyBtn.textContent = 'Failed — copy manually';
+        setTimeout(() => { copyBtn.textContent = 'Copy'; }, 3000);
+      }
+      document.body.removeChild(ta);
+    }
+
     copyBtn.addEventListener('click', () => {
       const text = pre.textContent;
-      navigator.clipboard.writeText(text).then(() => {
-        copyBtn.textContent = 'Copied ✓';
-        copyBtn.classList.add('copied');
-        setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 2000);
-      });
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(markCopied).catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
     });
 
     // Attach click listeners to all [data-key] items
@@ -884,7 +930,7 @@ app.get('/', (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log('==============================================');
-  console.log(`🚀 Mock Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Mock Server running on http://${HOST}:${PORT}`);
   console.log('==============================================');
   console.log('  [AUTH]     POST /oauth2/token');
   console.log('  [MERCHANT] POST /api/merchant/kyc');
@@ -927,8 +973,8 @@ app.listen(PORT, () => {
   console.log('  [AUTH]     POST /otp/v1 | /reis-apis/v1/reis-aml');
   console.log('  [AUTH]     GET  /self-reset-pin/v1/get-data | POST /self-reset-pin/v1/process');
   console.log('==============================================');
-  console.log(`  Open http://localhost:${PORT}/ for HTML docs`);
-  console.log(`  Open http://localhost:${PORT}/health for JSON status`);
+  console.log(`  Open http://${HOST}:${PORT}/ for HTML docs`);
+  console.log(`  Open http://${HOST}:${PORT}/health for JSON status`);
   console.log('==============================================\n');
 });
   // ── OSB (SOAP) ──
