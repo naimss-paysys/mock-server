@@ -270,9 +270,9 @@ const curlExamples = {
 
   'togo-change-pin':
     `curl -s -X PATCH http://localhost:${PORT}/accounts/v2/pin \\\n` +
-    `  -H 'Authorization: Bearer test-token' \\\n` +
+    `  -H 'Authorization: Bearer AX2ua41epgVq8psGstIlRBvEtScduk4xXJFR0wPQoQ' \\\n` +
     `  -H 'Content-Type: application/json' \\\n` +
-    `  -d '{"msisdn":"22890898190","oldPin":"1234","newPin":"5678"}'`,
+    `  -d '{"identifier":"29506967","identifierType":"msisdn","oldPin":"MjAyNw==","newPin":"MjAzMA==","pinType":"0"}'`,
 
   'togo-kyc-upgrade':
     `curl -s -X POST http://localhost:${PORT}/accounts/v2/upgrade-kyc/22890898190 \\\n` +
@@ -468,14 +468,8 @@ const curlExamples = {
     `  -H 'Content-Type: application/json' \\\n` +
     `  -d '{"msisdn":"22890898190","type":"sms"}'`,
 
-  'togo-aml':
-    `curl -s -X POST http://localhost:${PORT}/reis-apis/v1/reis-aml \\\n` +
-    `  -H 'Authorization: Bearer test-token' \\\n` +
-    `  -H 'Content-Type: application/json' \\\n` +
-    `  -d '{"msisdn":"22890898190","amount":"50000","transactionType":"sendmoney"}'`,
-
   'reis-aml':
-    `curl -s -X POST http://localhost:${PORT}/reis-aml \\\n` +
+    `curl -s -X POST http://localhost:${PORT}/reis-apis/v1/reis-aml \\\n` +
     `  -H 'Content-Type: application/json' \\\n` +
     `  -d '{"data":[{"accountData":[{"op":"replace","path":"/status","value":"3"},{"op":"replace","path":"/name","value":"YOVO"},{"op":"replace","path":"/last_name","value":"JULBEC"},{"op":"replace","path":"/nationality","value":"TOGO"},{"op":"replace","path":"/placeOfBirth","value":"Lome"},{"op":"replace","path":"/address_country","value":"TOGO"},{"op":"replace","path":"/activity_domain","value":"COMMERCE"},{"op":"replace","path":"/id_number","value":"0294-580-8060"},{"op":"replace","path":"/id_type","value":"national_id"},{"op":"replace","path":"/id_del_date","value":"2025-10-10"},{"op":"replace","path":"/id_exp_date","value":"2029-10-10"},{"op":"replace","path":"/organization","value":"ETS LA GRACE"},{"op":"replace","path":"/gender","value":"M"},{"op":"replace","path":"/limit_kyc","value":"KYC 2 (full registration / certification)"},{"op":"replace","path":"/date_of_birth","value":"1962-12-31"}]}],"msisdn":"92790014"}'`,
 
@@ -586,7 +580,7 @@ app.get('/health', (req, res) => {
         'Merchant Login / PIN Verify': 'POST /accounts/v2/msisdn/:msisdn/identity',
         'Merchant Balance': 'GET /accounts/v2/msisdn/:msisdn/balance',
         'Merchant Transaction History': 'GET /accounts/v2/msisdn/:msisdn/statemententries',
-        'Change PIN': 'PATCH /accounts/v2/pin',
+        'Change PIN (identifier/msisdn + Base64 pins)': 'PATCH /accounts/v2/pin',
         'KYC Upgrade / Change Status': 'POST /accounts/v2/upgrade-kyc/:msisdn',
       },
       'TOGOCOM — Bill Payments': {
@@ -777,7 +771,7 @@ app.get('/', (req, res) => {
     <li data-key="togo-merchant-login" data-label="POST /accounts/v2/msisdn/:msisdn/identity — Merchant Login / PIN Verify"><span class="method post">POST</span> <code>/accounts/v2/msisdn/:msisdn/identity</code> — Merchant Login / PIN Verify</li>
     <li data-key="togo-balance" data-label="GET /accounts/v2/msisdn/:msisdn/balance — Merchant Balance"><span class="method get">GET</span>   <code>/accounts/v2/msisdn/:msisdn/balance</code> — Merchant Balance</li>
     <li data-key="togo-tx-history" data-label="GET /accounts/v2/msisdn/:msisdn/statemententries — Transaction History"><span class="method get">GET</span>   <code>/accounts/v2/msisdn/:msisdn/statemententries</code> — Transaction History</li>
-    <li data-key="togo-change-pin" data-label="PATCH /accounts/v2/pin — Change PIN"><span class="method patch">PATCH</span> <code>/accounts/v2/pin</code> — Change PIN</li>
+    <li data-key="togo-change-pin" data-label="PATCH /accounts/v2/pin — Change PIN (identifier + pinType)"><span class="method patch">PATCH</span> <code>/accounts/v2/pin</code> — Change PIN <em>[identifier, identifierType, oldPin, newPin, pinType]</em></li>
     <li data-key="togo-kyc-upgrade" data-label="POST /accounts/v2/upgrade-kyc/:msisdn — KYC Upgrade"><span class="method post">POST</span> <code>/accounts/v2/upgrade-kyc/:msisdn</code> — KYC Upgrade</li>
   </ul>
 
