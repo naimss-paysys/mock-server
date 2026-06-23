@@ -482,6 +482,15 @@ const curlExamples = {
     `  -H 'Authorization: Bearer test-token' \\\n` +
     `  -H 'Content-Type: application/json' \\\n` +
     `  -d '{"msisdn":"22890898190","newPin":"5678","otp":"123456"}'`,
+
+  /* ── TEST UTILITIES ──────────────────────────────────────── */
+  'test-timeout':
+    `curl -s -X GET http://localhost:${PORT}/test-timeout`,
+
+  'test-timeout-post':
+    `curl -s -X POST http://localhost:${PORT}/test-timeout \\\n` +
+    `  -H 'Content-Type: application/json' \\\n` +
+    `  -d '{"hello":"world"}'`,
 };
 
 // Replace 'localhost' with the detected machine IP in all curl examples
@@ -515,6 +524,22 @@ app.use(require('./routes/mmp'));
 app.use(require('./routes/payment'));
 app.use(require('./routes/misc'));
 app.use(require('./routes/togocom')); // Togocom/Prep-API (MMP_request&responses.xlsx)
+
+// ─── Timeout Test Endpoint (10-second delay) ────────────────────
+app.all('/test-timeout', (req, res) => {
+  const DELAY = 10000;
+  console.log(`[test-timeout] ${req.method} received — responding in ${DELAY / 1000}s`);
+  setTimeout(() => {
+    res.json({
+      success: true,
+      message: 'Response after 10 second delay',
+      method: req.method,
+      timestamp: new Date().toISOString(),
+      delay_ms: DELAY,
+      echo: req.body || null,
+    });
+  }, DELAY);
+});
 
 // ============================================
 // Health Check Endpoint
@@ -628,6 +653,9 @@ app.get('/health', (req, res) => {
         'REIS-AML Onboarding': 'POST /reis-apis/v1/reis-aml',
         'Forget PIN — Get Data': 'GET /self-reset-pin/v1/get-data',
         'Forget PIN — Process Reset': 'POST /self-reset-pin/v1/process',
+      },
+      'TEST UTILITIES': {
+        'Timeout Test (10s delay)': 'GET|POST /test-timeout',
       },
     },
   });
@@ -831,6 +859,12 @@ app.get('/', (req, res) => {
     <li data-key="reis-aml" data-label="POST /reis-apis/v1/reis-aml — REIS-AML Onboarding"><span class="method post">POST</span> <code>/reis-apis/v1/reis-aml</code> — REIS-AML Onboarding</li>
     <li data-key="togo-forget-pin-get" data-label="GET /self-reset-pin/v1/get-data — Forget PIN Get Data"><span class="method get">GET</span>   <code>/self-reset-pin/v1/get-data</code> — Forget PIN Get Data</li>
     <li data-key="togo-forget-pin-process" data-label="POST /self-reset-pin/v1/process — Forget PIN Process"><span class="method post">POST</span> <code>/self-reset-pin/v1/process</code> — Forget PIN Process</li>
+  </ul>
+
+  <h2>Test Utilities</h2>
+  <ul>
+    <li data-key="test-timeout" data-label="GET /test-timeout — 10-second delay test"><span class="method get">GET</span>   <code>/test-timeout</code> — 10-second delay (timeout testing)</li>
+    <li data-key="test-timeout-post" data-label="POST /test-timeout — 10-second delay test"><span class="method post">POST</span> <code>/test-timeout</code> — 10-second delay (timeout testing, echoes body)</li>
   </ul>
 
   <footer>Server Time: ${new Date().toISOString()} &nbsp;|&nbsp; <a href="/health">/health (JSON)</a>
